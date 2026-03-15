@@ -1,20 +1,93 @@
-import React from "react";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { RouteProp, useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from "@react-navigation/stack";
+import React, { useEffect, useState } from "react";
 import {
-    ImageBackground,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  ImageBackground,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 
-export default function App() {
+type RootStackParamList = {
+  HomeScreens: { justRegistered?: boolean };
+  RegisterScreens: undefined;
+  LoginScreens: undefined;
+  PerfilScreens: { user: { name: string; email: string; phone: string } };
+};
+
+type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'HomeScreens'>;
+
+type HomeScreenRouteProp = RouteProp<RootStackParamList, 'HomeScreens'>;
+
+export default function App({ route }: { route: HomeScreenRouteProp }) {
+  const navigation = useNavigation<HomeScreenNavigationProp>();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; phone: string } | null>(null);
+
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      const loggedIn = await AsyncStorage.getItem("isLoggedIn");
+      setIsLoggedIn(loggedIn === "true");
+      if (loggedIn === "true") {
+        const userData = await AsyncStorage.getItem("currentUser");
+        if (userData) {
+          setCurrentUser(JSON.parse(userData));
+        }
+      }
+    };
+    checkLoginStatus();
+
+    if (route.params?.justRegistered) {
+      Alert.alert("Cadastro efetuado", "Bem-vindo à Tech Store!");
+    }
+  }, [route.params?.justRegistered]);
+
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem("isLoggedIn");
+    await AsyncStorage.removeItem("currentUser");
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+    Alert.alert("Logout", "Você foi desconectado.");
+  };
   return (
     <View style={styles.screen}>
       
       
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Tech Store</Text>
+        <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu(!showMenu)}>
+          <Ionicons name="menu" size={24} color="#FFF" />
+        </TouchableOpacity>
       </View>
+
+      {showMenu && (
+        <View style={styles.menu}>
+          {isLoggedIn ? (
+            <>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); navigation.navigate("PerfilScreens", { user: currentUser! }); }}>
+                <Text style={styles.menuText}>Perfil</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+                <Text style={styles.menuText}>Logout</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); navigation.navigate("LoginScreens"); }}>
+                <Text style={styles.menuText}>Login</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); navigation.navigate("RegisterScreens"); }}>
+                <Text style={styles.menuText}>Cadastro</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      )}
 
       
       <View style={styles.descriptionContainer}>
@@ -66,18 +139,11 @@ export default function App() {
               source={require("../../assets/images/ImSobre.png")}
               style={styles.button}
               imageStyle={styles.image}
+              resizeMode="cover"
+
             >
               <Text style={styles.text}>Contato</Text>
             </ImageBackground>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.authContainer}>
-          <TouchableOpacity style={styles.loginButton}>
-            <Text style={styles.loginText}>Login</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.registerButton}>
-            <Text style={styles.registerText}>Cadastro</Text>
           </TouchableOpacity>
         </View>
 
@@ -104,17 +170,43 @@ const styles = StyleSheet.create({
 
   /* HEADER */
   header: {
-    height: 70,
-    justifyContent: "center",
+    height: 80,
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "#1E1E1E",
-    fontFamily: "sans-serif-medium"
+    paddingHorizontal: 20,
   },
 
   headerTitle: {
     color: "#FFF",
     fontSize: 22,
     fontWeight: "bold",
+  },
+
+  menuButton: {
+    padding: 10,
+  },
+
+  menu: {
+    position: "absolute",
+    top: 70,
+    right: 20,
+    backgroundColor: "#1E1E1E",
+    borderRadius: 10,
+    padding: 10,
+    zIndex: 1,
+    elevation: 5,
+  },
+
+  menuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+
+  menuText: {
+    color: "#FFF",
+    fontSize: 16,
   },
 
   /* TEXTO */
@@ -187,6 +279,18 @@ const styles = StyleSheet.create({
   },
 
   registerText: {
+    color: "#FFF",
+    fontWeight: "bold",
+  },
+
+  logoutButton: {
+    backgroundColor: "#FF6B6B",
+    paddingVertical: 12,
+    paddingHorizontal: 40,
+    borderRadius: 25,
+  },
+
+  logoutText: {
     color: "#FFF",
     fontWeight: "bold",
   },

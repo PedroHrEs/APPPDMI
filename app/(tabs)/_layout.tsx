@@ -14,10 +14,12 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Tabs>
-        <Tabs.Screen name="index" options={{ headerShown: false }} />
-              </Tabs>
-      <StatusBar style="auto" />
+      <>
+        <Tabs screenOptions={{ headerShown: false}}>
+          <Tabs.Screen name="home" options={{ title: 'Home', headerShown: false }} />
+        </Tabs>
+        <StatusBar style="auto" />
+      </>
     </ThemeProvider>
   );
 }
