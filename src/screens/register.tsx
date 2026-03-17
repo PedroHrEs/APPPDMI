@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
@@ -11,6 +10,9 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import{set,ref} from "firebase/database";
+import{auth, database} from "../services/connectionFirebase";
 
 type RootStackParamList = {
   HomeScreens: { justRegistered?: boolean };
@@ -23,7 +25,7 @@ type RegisterNavigationProp =
   StackNavigationProp<RootStackParamList, "RegisterScreens">;
   
 
-export default function Register() {
+
   const navigation = useNavigation<RegisterNavigationProp>();
 
 
@@ -51,7 +53,7 @@ export default function Register() {
   const [phoneError, setPhoneError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  const handleRegister = async () => {
+  
     if (loading) return;
     setLoading(true);
 
@@ -117,35 +119,29 @@ export default function Register() {
       password
     };
 
-    try {
-      const existingUsers = await AsyncStorage.getItem("users");
-      const users = existingUsers ? JSON.parse(existingUsers) : [];
-
-      const userExists = users.some(
-        (u: any) => u.email === cleanEmail
+      register();
+      router.replace("/login")
+      function register(){
+      try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
       );
+      const user = userCredential.user;
 
-      if (userExists) {
-        setEmailError("Email já cadastrado");
-        setLoading(false);
-        return;
+      if (user) {
+        await set(ref(database, "users/" + user.uid), {
+          uid: user.uid,
+          name: name,
+          email: email,
+          createdAt: new Date().toISOString(),
+        });
+        };  
       }
-
-      users.push(user);
-
-      await AsyncStorage.setItem("users", JSON.stringify(users));
-      // Don't set isLoggedIn here, user needs to login
-
-      Alert.alert("Cadastro efetuado", "Agora faça login para acessar!", [
-        { text: "OK", onPress: () => navigation.navigate("LoginScreens" as any) }
-      ]);
-
-    } catch (error) {
-      Alert.alert("Erro", "Falha ao salvar usuário.");
-    } finally {
-      setLoading(false);
     }
-  };
+  
+
 
   return (
     <View style={styles.screen}>
