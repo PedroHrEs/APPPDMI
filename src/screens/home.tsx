@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { RouteProp, useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { get, ref } from "firebase/database";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -9,58 +10,88 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
+import type { RootStackParamList } from "../../app/(tabs)/index";
+import { auth, database } from "../services/connectionFirebase";
 
-type RootStackParamList = {
-  HomeScreens: { justRegistered?: boolean };
-  RegisterScreens: undefined;
-  LoginScreens: undefined;
-  PerfilScreens: { user: { name: string; email: string; phone: string } };
+type HomeNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "HomeScreens"
+>;
+
+type HomeRouteProp = RouteProp<RootStackParamList, "HomeScreens">;
+
+type CurrentUser = {
+  name: string;
+  email: string;
+  phone: string;
 };
 
-type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'HomeScreens'>;
+type HomeProps = {
+  route: HomeRouteProp;
+};
 
-type HomeScreenRouteProp = RouteProp<RootStackParamList, 'HomeScreens'>;
-
-export default function App({ route }: { route: HomeScreenRouteProp }) {
-  const navigation = useNavigation<HomeScreenNavigationProp>();
+export default function App({ route }: HomeProps) {
+  const navigation = useNavigation<HomeNavigationProp>();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; phone: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
-    const checkLoginStatus = async () => {
-      const loggedIn = await AsyncStorage.getItem("isLoggedIn");
-      setIsLoggedIn(loggedIn === "true");
-      if (loggedIn === "true") {
-        const userData = await AsyncStorage.getItem("currentUser");
-        if (userData) {
-          setCurrentUser(JSON.parse(userData));
-        }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setIsLoggedIn(!!user);
+
+      if (!user) {
+        setCurrentUser(null);
+        return;
       }
-    };
-    checkLoginStatus();
+
+      const snapshot = await get(ref(database, `users/${user.uid}`));
+      const userData = snapshot.val();
+
+      if (userData) {
+        setCurrentUser({
+          name: userData.name ?? "",
+          email: userData.email ?? user.email ?? "",
+          phone: userData.phone ?? "",
+        });
+      }
+    });
 
     if (route.params?.justRegistered) {
-      Alert.alert("Cadastro efetuado", "Bem-vindo à Tech Store!");
+      Alert.alert("Cadastro efetuado", "Bem-vindo a Tech Store!");
     }
+    return unsubscribe;
   }, [route.params?.justRegistered]);
 
   const handleLogout = async () => {
-    await AsyncStorage.removeItem("isLoggedIn");
-    await AsyncStorage.removeItem("currentUser");
+    await signOut(auth);
     setIsLoggedIn(false);
     setCurrentUser(null);
-    Alert.alert("Logout", "Você foi desconectado.");
+    setShowMenu(false);
+    Alert.alert("Logout", "Voce foi desconectado.");
   };
+
+  const handleProfileNavigation = () => {
+    setShowMenu(false);
+
+    if (!currentUser) {
+      Alert.alert("Perfil", "Nenhum usuario logado encontrado.");
+      return;
+    }
+
+    navigation.navigate("UserScreens");
+  };
+
   return (
     <View style={styles.screen}>
-      
-      
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Tech Store</Text>
-        <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu(!showMenu)}>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setShowMenu(!showMenu)}
+        >
           <Ionicons name="menu" size={24} color="#FFF" />
         </TouchableOpacity>
       </View>
@@ -69,7 +100,10 @@ export default function App({ route }: { route: HomeScreenRouteProp }) {
         <View style={styles.menu}>
           {isLoggedIn ? (
             <>
-              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); navigation.navigate("PerfilScreens", { user: currentUser! }); }}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleProfileNavigation}
+              >
                 <Text style={styles.menuText}>Perfil</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
@@ -78,10 +112,22 @@ export default function App({ route }: { route: HomeScreenRouteProp }) {
             </>
           ) : (
             <>
-              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); navigation.navigate("LoginScreens"); }}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  navigation.navigate("LoginScreens");
+                }}
+              >
                 <Text style={styles.menuText}>Login</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); navigation.navigate("RegisterScreens"); }}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  navigation.navigate("RegisterScreens");
+                }}
+              >
                 <Text style={styles.menuText}>Cadastro</Text>
               </TouchableOpacity>
             </>
@@ -89,18 +135,14 @@ export default function App({ route }: { route: HomeScreenRouteProp }) {
         </View>
       )}
 
-      
       <View style={styles.descriptionContainer}>
         <Text style={styles.descriptionText}>
-          Bem-vindo à Tech Store! Encontre notebooks, impressoras,
-          periféricos e os melhores produtos de informática com qualidade
-          e preço justo.
+          Bem-vindo a Tech Store! Encontre notebooks, impressoras, perifericos
+          e os melhores produtos de informatica com qualidade e preco justo.
         </Text>
       </View>
 
-      
       <View style={styles.content}>
-
         <View style={styles.container}>
           <TouchableOpacity>
             <ImageBackground
@@ -108,7 +150,7 @@ export default function App({ route }: { route: HomeScreenRouteProp }) {
               style={styles.button}
               imageStyle={styles.image}
             >
-              <Text style={styles.text}>Catálogo</Text>
+              <Text style={styles.text}>Catalogo</Text>
             </ImageBackground>
           </TouchableOpacity>
 
@@ -140,25 +182,23 @@ export default function App({ route }: { route: HomeScreenRouteProp }) {
               style={styles.button}
               imageStyle={styles.image}
               resizeMode="cover"
-
             >
               <Text style={styles.text}>Contato</Text>
             </ImageBackground>
           </TouchableOpacity>
         </View>
-
       </View>
-      
+
       <View style={styles.footer}>
-          <TouchableOpacity style={styles.footerButton}>
-            <Text style={styles.footerText}>Produtos</Text>
-          </TouchableOpacity>
+        <TouchableOpacity style={styles.footerButton}>
+          <Text style={styles.footerText}>Produtos</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity style={styles.footerButton}>
-              <Text style={styles.footerText}>Contato</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.footerButton}>
+          <Text style={styles.footerText}>Contato</Text>
+        </TouchableOpacity>
       </View>
+    </View>
   );
 }
 
@@ -168,7 +208,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#030d13",
   },
 
-  /* HEADER */
   header: {
     height: 80,
     flexDirection: "row",
@@ -209,7 +248,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-  /* TEXTO */
   descriptionContainer: {
     paddingHorizontal: 25,
     paddingVertical: 15,
@@ -221,13 +259,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 22,
     paddingTop: 30,
-    fontFamily: "sans-serif"
+    fontFamily: "sans-serif",
   },
 
-  /* CONTEÚDO */
   content: {
     flex: 1,
-    paddingTop:20
+    paddingTop: 20,
   },
 
   container: {
@@ -296,28 +333,28 @@ const styles = StyleSheet.create({
   },
 
   authContainer: {
-  flexDirection: "row",
-  justifyContent: "space-evenly",
-  paddingVertical: 15,
-},
+    flexDirection: "row",
+    justifyContent: "space-evenly",
+    paddingVertical: 15,
+  },
 
   footer: {
-  flexDirection: "row",
-  justifyContent: "space-around",
-  alignItems: "center",
-  height: 70, // altura fixa (não cresce)
-  backgroundColor: "#1E1E1E",
-},
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    height: 70,
+    backgroundColor: "#1E1E1E",
+  },
 
-footerButton: {
-  paddingVertical: 8,
-  paddingHorizontal: 18,
-  borderRadius: 10,
-},
+  footerButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+  },
 
-footerText: {
-  color: "#FFF",
-  fontWeight: "600",
-  fontSize: 14,
-},
+  footerText: {
+    color: "#FFF",
+    fontWeight: "600",
+    fontSize: 14,
+  },
 });
