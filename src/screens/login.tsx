@@ -21,9 +21,9 @@ type LoginNavigationProp = StackNavigationProp<
 
 const LoginScreens = () => {
   const navigation = useNavigation<LoginNavigationProp>();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [emailError, setEmailError] = useState("");
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [emailError, setEmailError] = useState<string>("");
   const [passwordError, setPasswordError] = useState("");
 
   const handleLogin = async () => {
@@ -31,18 +31,18 @@ const LoginScreens = () => {
     setPasswordError("");
 
     if (!email) {
-      setEmailError("Email e obrigatorio");
+      setEmailError("Email é obrigatório");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setEmailError("Email invalido");
+      setEmailError("Email inválido");
       return;
     }
 
     if (!password) {
-      setPasswordError("Senha e obrigatoria");
+      setPasswordError("Senha é obrigatória");
       return;
     }
 
@@ -61,7 +61,7 @@ const LoginScreens = () => {
       if (userData) {
         navigation.navigate("HomeScreens");
       } else {
-        Alert.alert("Erro", "Perfil do usuario nao encontrado.");
+        Alert.alert("Erro", "Perfil do usuário não encontrado.");
       }
     } catch (error: any) {
       if (error.code === "auth/invalid-credential") {
@@ -70,7 +70,7 @@ const LoginScreens = () => {
       }
 
       if (error.code === "auth/user-not-found") {
-        setEmailError("Conta nao cadastrada");
+        setEmailError("Conta não cadastrada");
         return;
       }
 

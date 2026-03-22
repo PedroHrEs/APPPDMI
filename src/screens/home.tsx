@@ -87,7 +87,9 @@ export default function App({ route }: HomeProps) {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Tech Store</Text>
+        <TouchableOpacity onPress={() => navigation.navigate("HomeScreens")}>
+          <Text style={styles.headerTitle}>Tech Store</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.menuButton}
           onPress={() => setShowMenu(!showMenu)}
@@ -187,16 +189,6 @@ export default function App({ route }: HomeProps) {
             </ImageBackground>
           </TouchableOpacity>
         </View>
-      </View>
-
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.footerButton}>
-          <Text style={styles.footerText}>Produtos</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.footerButton}>
-          <Text style={styles.footerText}>Contato</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );

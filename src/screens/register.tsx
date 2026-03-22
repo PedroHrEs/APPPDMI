@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import MaskInput from 'react-native-mask-input';
 import type { RootStackParamList } from "../../app/(tabs)/index";
 import { auth, database } from "../services/connectionFirebase";
 
@@ -22,10 +23,10 @@ type RegisterNavigationProp = StackNavigationProp<
 
 export default function RegisterScreens() {
   const navigation = useNavigation<RegisterNavigationProp>();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
+  const [name, setName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [mensagem, setMensagem] = useState("");
 
@@ -34,19 +35,7 @@ export default function RegisterScreens() {
   const [phoneError, setPhoneError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  const formatPhone = (value: string) => {
-    const numbers = value.replace(/\D/g, "");
-
-    if (numbers.length <= 2) return `(${numbers}`;
-    if (numbers.length <= 7) {
-      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
-    }
-
-    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(
-      7,
-      11
-    )}`;
-  };
+  const formatPhone = ['(', /\d/, /\d/, ')', ' ', /\d/, /\d/, /\d/, /\d/, /\d/, '-', /\d/, /\d/, /\d/, /\d/];
 
   const validate = () => {
     let hasError = false;
@@ -169,12 +158,15 @@ export default function RegisterScreens() {
             <Text style={styles.errorText}>{emailError}</Text>
           ) : null}
 
-          <TextInput
+          <MaskInput
             style={styles.input}
             placeholder="(00)00000-0000"
             placeholderTextColor="#888"
             value={phone}
-            onChangeText={(text) => setPhone(formatPhone(text))}
+            onChangeText={(masked, unmasked) => {
+          setPhone(masked); 
+        }}
+        mask={formatPhone}
             keyboardType="phone-pad"
           />
           {phoneError ? (
