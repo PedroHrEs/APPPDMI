@@ -1,5 +1,4 @@
-import { RouteProp, useNavigation } from "@react-navigation/native";
-import { StackNavigationProp } from "@react-navigation/stack";
+import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { get, ref } from "firebase/database";
 import React, { useEffect, useState } from "react";
@@ -11,18 +10,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import type { RootStackParamList } from "../../app/(tabs)/index";
 import { auth, database } from "../services/connectionFirebase";
 
-type UserNavigationProp = StackNavigationProp<RootStackParamList, "UserScreens">;
-type UserRouteProp = RouteProp<RootStackParamList, "UserScreens">;
-
-type UserProps = {
-  route: UserRouteProp;
-};
-
-export default function UserScreens({ route }: UserProps) {
-  const navigation = useNavigation<UserNavigationProp>();
+export default function UserScreens() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{
     name: string;
@@ -64,7 +55,7 @@ export default function UserScreens({ route }: UserProps) {
     return (
       <View style={styles.screen}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.navigate("HomeScreens")}>
+          <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
             <Text style={styles.headerTitle}>Tech Store</Text>
           </TouchableOpacity>
         </View>
@@ -79,7 +70,7 @@ export default function UserScreens({ route }: UserProps) {
     return (
       <View style={styles.screen}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.navigate("HomeScreens")}>
+          <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
             <Text style={styles.headerTitle}>Tech Store</Text>
           </TouchableOpacity>
         </View>
@@ -94,7 +85,7 @@ export default function UserScreens({ route }: UserProps) {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate("HomeScreens")}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
           <Text style={styles.headerTitle}>Tech Store</Text>
         </TouchableOpacity>
       </View>

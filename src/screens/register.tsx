@@ -1,5 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
-import { StackNavigationProp } from "@react-navigation/stack";
+import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { ref, set } from "firebase/database";
 import React, { useState } from "react";
@@ -13,16 +12,10 @@ import {
   View,
 } from "react-native";
 import MaskInput from 'react-native-mask-input';
-import type { RootStackParamList } from "../../app/(tabs)/index";
 import { auth, database } from "../services/connectionFirebase";
 
-type RegisterNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  "RegisterScreens"
->;
-
 export default function RegisterScreens() {
-  const navigation = useNavigation<RegisterNavigationProp>();
+  const router = useRouter();
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
@@ -110,7 +103,7 @@ export default function RegisterScreens() {
       setPhone("");
       setEmail("");
       setPassword("");
-      navigation.navigate("LoginScreens");
+      router.replace("/(tabs)/user");
     } catch (error: any) {
       if (Platform.OS === "web") {
         alert(error.message);
@@ -127,7 +120,7 @@ export default function RegisterScreens() {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate("HomeScreens")}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
           <Text style={styles.headerTitle}>Tech Store</Text>
         </TouchableOpacity>
       </View>
@@ -199,7 +192,7 @@ export default function RegisterScreens() {
             <Text style={styles.messageText}>{mensagem}</Text>
           ) : null}
 
-          <TouchableOpacity onPress={() => navigation.navigate("LoginScreens")}>
+          <TouchableOpacity onPress={() => router.replace("/(tabs)/user")}>
             <Text style={styles.loginText}>Ja possui conta? Fazer login</Text>
           </TouchableOpacity>
         </View>

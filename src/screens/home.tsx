@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { RouteProp, useNavigation } from "@react-navigation/native";
-import { StackNavigationProp } from "@react-navigation/stack";
+import { useRouter } from "expo-router";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { get, ref } from "firebase/database";
 import React, { useEffect, useState } from "react";
@@ -12,15 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import type { RootStackParamList } from "../../app/(tabs)/index";
 import { auth, database } from "../services/connectionFirebase";
-
-type HomeNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  "HomeScreens"
->;
-
-type HomeRouteProp = RouteProp<RootStackParamList, "HomeScreens">;
 
 type CurrentUser = {
   name: string;
@@ -28,12 +19,8 @@ type CurrentUser = {
   phone: string;
 };
 
-type HomeProps = {
-  route: HomeRouteProp;
-};
-
-export default function App({ route }: HomeProps) {
-  const navigation = useNavigation<HomeNavigationProp>();
+export default function App() {
+  const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -58,12 +45,8 @@ export default function App({ route }: HomeProps) {
         });
       }
     });
-
-    if (route.params?.justRegistered) {
-      Alert.alert("Cadastro efetuado", "Bem-vindo a Tech Store!");
-    }
     return unsubscribe;
-  }, [route.params?.justRegistered]);
+  }, []);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -81,13 +64,13 @@ export default function App({ route }: HomeProps) {
       return;
     }
 
-    navigation.navigate("UserScreens");
+    router.push("/(tabs)/user");
   };
 
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate("HomeScreens")}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
           <Text style={styles.headerTitle}>Tech Store</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -118,7 +101,7 @@ export default function App({ route }: HomeProps) {
                 style={styles.menuItem}
                 onPress={() => {
                   setShowMenu(false);
-                  navigation.navigate("LoginScreens");
+                  router.push("/(tabs)/user");
                 }}
               >
                 <Text style={styles.menuText}>Login</Text>
@@ -127,7 +110,7 @@ export default function App({ route }: HomeProps) {
                 style={styles.menuItem}
                 onPress={() => {
                   setShowMenu(false);
-                  navigation.navigate("RegisterScreens");
+                  router.push("/register");
                 }}
               >
                 <Text style={styles.menuText}>Cadastro</Text>

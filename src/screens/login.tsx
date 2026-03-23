@@ -1,5 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
-import { StackNavigationProp } from "@react-navigation/stack";
+import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { get, ref } from "firebase/database";
 import React, { useState } from "react";
@@ -11,16 +10,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import type { RootStackParamList } from "../../app/(tabs)/index";
 import { auth, database } from "../services/connectionFirebase";
 
-type LoginNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  "LoginScreens"
->;
-
 const LoginScreens = () => {
-  const navigation = useNavigation<LoginNavigationProp>();
+  const router = useRouter();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [emailError, setEmailError] = useState<string>("");
@@ -59,7 +52,7 @@ const LoginScreens = () => {
       const userData = snapshot.val();
 
       if (userData) {
-        navigation.navigate("HomeScreens");
+        router.replace("/(tabs)");
       } else {
         Alert.alert("Erro", "Perfil do usuário não encontrado.");
       }
@@ -81,7 +74,7 @@ const LoginScreens = () => {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate("HomeScreens")}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
           <Text style={styles.headerTitle}>Tech Store</Text>
         </TouchableOpacity>
       </View>
@@ -111,7 +104,7 @@ const LoginScreens = () => {
         <TouchableOpacity style={styles.button} onPress={handleLogin}>
           <Text style={styles.buttonText}>Entrar</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate("RegisterScreens")}>
+        <TouchableOpacity onPress={() => router.push("/register")}>
           <Text style={styles.link}>Nao tem conta? Cadastre-se</Text>
         </TouchableOpacity>
       </View>
