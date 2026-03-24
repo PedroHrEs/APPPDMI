@@ -59,6 +59,14 @@ function PasswordRule({ valid, text }: { valid: boolean; text: string }) {
   );
 }
 
+function FieldRule({ valid, text }: { valid: boolean; text: string }) {
+  return (
+    <Text style={[styles.fieldRuleText, valid && styles.fieldRuleValid]}>
+      • {text}
+    </Text>
+  );
+}
+
 export default function RegisterScreens() {
   const router = useRouter();
 
@@ -82,6 +90,13 @@ export default function RegisterScreens() {
   const cleanEmail = email.trim().toLowerCase();
   const cleanPhone = phone.replace(/\D/g, "");
   const passwordStrength = getPasswordStrength(password);
+  const hasFullName = cleanName.split(/\s+/).filter(Boolean).length >= 2;
+  const isValidEmail = EMAIL_REGEX.test(cleanEmail);
+  const isValidPhone = /^\d{10,11}$/.test(cleanPhone);
+  const isConfirmPasswordValid =
+    password.length > 0 &&
+    confirmPassword.length > 0 &&
+    password === confirmPassword;
 
   const passwordRules = {
     length: password.length >= 6,
@@ -91,11 +106,11 @@ export default function RegisterScreens() {
   };
 
   const isFormValid =
-    cleanName !== "" &&
-    EMAIL_REGEX.test(cleanEmail) &&
-    /^\d{10,11}$/.test(cleanPhone) &&
+    hasFullName &&
+    isValidEmail &&
+    isValidPhone &&
     PASSWORD_REGEX.test(password) &&
-    password === confirmPassword;
+    isConfirmPasswordValid;
 
   const resetErrors = () => {
     setNameError("");
@@ -110,17 +125,17 @@ export default function RegisterScreens() {
 
     resetErrors();
 
-    if (!cleanName) {
-      setNameError("Nome é obrigatório");
+    if (!hasFullName) {
+      setNameError("Digite nome e sobrenome");
       hasError = true;
     }
 
-    if (!EMAIL_REGEX.test(cleanEmail)) {
+    if (!isValidEmail) {
       setEmailError("Email inválido");
       hasError = true;
     }
 
-    if (!/^\d{10,11}$/.test(cleanPhone)) {
+    if (!isValidPhone) {
       setPhoneError("Telefone inválido");
       hasError = true;
     }
@@ -132,7 +147,7 @@ export default function RegisterScreens() {
       hasError = true;
     }
 
-    if (password !== confirmPassword) {
+    if (!isConfirmPasswordValid) {
       setConfirmPasswordError("As senhas não coincidem");
       hasError = true;
     }
@@ -212,6 +227,9 @@ export default function RegisterScreens() {
             value={name}
             onChangeText={setName}
           />
+          {name.length > 0 ? (
+            <FieldRule valid={hasFullName} text="Digite nome e sobrenome" />
+          ) : null}
           {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
 
           <TextInput
@@ -223,6 +241,9 @@ export default function RegisterScreens() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
+          {email.length > 0 ? (
+            <FieldRule valid={isValidEmail} text="Digite um email válido" />
+          ) : null}
           {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
           <MaskInput
@@ -234,6 +255,12 @@ export default function RegisterScreens() {
             mask={PHONE_MASK}
             keyboardType="phone-pad"
           />
+          {phone.length > 0 ? (
+            <FieldRule
+              valid={isValidPhone}
+              text="Digite um telefone com DDD e 10 ou 11 números"
+            />
+          ) : null}
           {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
 
           <View>
@@ -322,6 +349,13 @@ export default function RegisterScreens() {
 
             {confirmPasswordError ? (
               <Text style={styles.errorText}>{confirmPasswordError}</Text>
+            ) : null}
+
+            {confirmPassword.length > 0 ? (
+              <FieldRule
+                valid={password.length > 6}
+                text="A confirmação deve ser igual à senha"
+              />
             ) : null}
           </View>
 
@@ -424,6 +458,15 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   passwordRuleValid: {
+    color: "#06D6A0",
+  },
+  fieldRuleText: {
+    color: "#888",
+    fontSize: 13,
+    marginTop: 5,
+    marginLeft: 5,
+  },
+  fieldRuleValid: {
     color: "#06D6A0",
   },
   button: {
