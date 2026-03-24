@@ -1,10 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { get, ref } from "firebase/database";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
-  Alert,
   ImageBackground,
   ScrollView,
   StyleSheet,
@@ -13,20 +9,11 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { auth, database } from "../services/connectionFirebase";
-
-type CurrentUser = {
-  name: string;
-  email: string;
-  phone: string;
-};
+import AppHeader from "../components/AppHeader";
 
 export default function App() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   const isCompactScreen = width < 380;
   const horizontalPadding = width < 480 ? 16 : 24;
@@ -36,100 +23,13 @@ export default function App() {
     ? Math.min(contentWidth, 320)
     : Math.min((contentWidth - cardGap) / 2, 220);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setIsLoggedIn(!!user);
-
-      if (!user) {
-        setCurrentUser(null);
-        return;
-      }
-
-      const snapshot = await get(ref(database, `users/${user.uid}`));
-      const userData = snapshot.val();
-
-      if (userData) {
-        setCurrentUser({
-          name: userData.name ?? "",
-          email: userData.email ?? user.email ?? "",
-          phone: userData.phone ?? "",
-        });
-      }
-    });
-    return unsubscribe;
-  }, []);
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    setIsLoggedIn(false);
-    setCurrentUser(null);
-    setShowMenu(false);
-    Alert.alert("Logout", "Voce foi desconectado.");
-  };
-
-  const handleProfileNavigation = () => {
-    setShowMenu(false);
-
-    if (!currentUser) {
-      Alert.alert("Perfil", "Nenhum usuario logado encontrado.");
-      return;
-    }
-
-    router.push("/(tabs)/user");
+  const handleProductsListNavigation = () => {
+    router.push("/products");
   };
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
-          <Text style={styles.headerTitle}>Tech Store</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => setShowMenu(!showMenu)}
-        >
-          <Ionicons name="menu" size={24} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-
-      {showMenu && (
-        <View style={styles.menu}>
-          {isLoggedIn ? (
-            <>
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={handleProfileNavigation}
-              >
-                <Text style={styles.menuText}>Perfil</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-                <Text style={styles.menuText}>Logout</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  router.push("/(tabs)/user");
-                }}
-              >
-                <Text style={styles.menuText}>Login</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  router.push("/register");
-                }}
-              >
-                <Text style={styles.menuText}>Cadastro</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      )}
+      <AppHeader />
 
       <ScrollView
         contentContainerStyle={[
@@ -179,7 +79,7 @@ export default function App() {
             </ImageBackground>
           </TouchableOpacity>
 
-          <TouchableOpacity>
+          <TouchableOpacity onPress={handleProductsListNavigation}>
             <ImageBackground
               source={require("../../assets/images/ImProdutos.png")}
               style={[styles.button, { width: cardSize, height: cardSize }]}
@@ -213,46 +113,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     alignItems: "center",
     paddingBottom: 24,
-  },
-
-  header: {
-    minHeight: 80,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#1E1E1E",
-    paddingHorizontal: 20,
-  },
-
-  headerTitle: {
-    color: "#FFF",
-    fontSize: 22,
-    fontWeight: "bold",
-  },
-
-  menuButton: {
-    padding: 10,
-  },
-
-  menu: {
-    position: "absolute",
-    top: 70,
-    right: 20,
-    backgroundColor: "#1E1E1E",
-    borderRadius: 10,
-    padding: 10,
-    zIndex: 1,
-    elevation: 5,
-  },
-
-  menuItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-  },
-
-  menuText: {
-    color: "#FFF",
-    fontSize: 16,
   },
 
   descriptionContainer: {

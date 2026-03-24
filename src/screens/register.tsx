@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import MaskInput from "react-native-mask-input";
+import AppHeader from "../components/AppHeader";
 
 import { auth, database } from "../services/connectionFirebase";
 
@@ -215,11 +216,7 @@ export default function RegisterScreens() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
-          <Text style={styles.headerTitle}>Tech Store</Text>
-        </TouchableOpacity>
-      </View>
+      <AppHeader />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -410,20 +407,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 16,
     paddingBottom: 24,
-  },
-  header: {
-    minHeight: 80,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#1E1E1E",
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  headerTitle: {
-    color: "#FFF",
-    fontSize: 22,
-    fontWeight: "bold",
   },
   content: {
     justifyContent: "center",

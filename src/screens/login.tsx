@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import AppHeader from "../components/AppHeader";
 import { auth, database } from "../services/connectionFirebase";
 
 const LoginScreens = () => {
@@ -79,11 +80,7 @@ const LoginScreens = () => {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
-          <Text style={styles.headerTitle}>Tech Store</Text>
-        </TouchableOpacity>
-      </View>
+      <AppHeader />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -143,21 +140,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 24,
-  },
-
-  header: {
-    minHeight: 80,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#1E1E1E",
-    paddingHorizontal: 20,
-  },
-
-  headerTitle: {
-    color: "#FFF",
-    fontSize: 22,
-    fontWeight: "bold",
   },
 
   container: {

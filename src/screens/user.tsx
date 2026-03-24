@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { get, ref } from "firebase/database";
 import React, { useEffect, useState } from "react";
@@ -8,14 +7,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
+import AppHeader from "../components/AppHeader";
 import { auth, database } from "../services/connectionFirebase";
 
 export default function UserScreens() {
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{
@@ -57,11 +55,7 @@ export default function UserScreens() {
   if (loading) {
     return (
       <View style={styles.screen}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
-            <Text style={styles.headerTitle}>Tech Store</Text>
-          </TouchableOpacity>
-        </View>
+        <AppHeader />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#FFF" />
         </View>
@@ -72,11 +66,7 @@ export default function UserScreens() {
   if (!user) {
     return (
       <View style={styles.screen}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
-            <Text style={styles.headerTitle}>Tech Store</Text>
-          </TouchableOpacity>
-        </View>
+        <AppHeader />
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View
             style={[styles.container, { width: "100%", maxWidth: Math.min(width - 32, 480) }]}
@@ -91,11 +81,7 @@ export default function UserScreens() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
-          <Text style={styles.headerTitle}>Tech Store</Text>
-        </TouchableOpacity>
-      </View>
+      <AppHeader />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View
           style={[styles.container, { width: "100%", maxWidth: Math.min(width - 32, 480) }]}
@@ -124,21 +110,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 16,
     paddingVertical: 24,
-  },
-
-  header: {
-    minHeight: 80,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#1E1E1E",
-    paddingHorizontal: 20,
-  },
-
-  headerTitle: {
-    color: "#FFF",
-    fontSize: 22,
-    fontWeight: "bold",
   },
 
   container: {
