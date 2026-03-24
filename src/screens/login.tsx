@@ -4,20 +4,26 @@ import { get, ref } from "firebase/database";
 import React, { useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { auth, database } from "../services/connectionFirebase";
 
 const LoginScreens = () => {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [emailError, setEmailError] = useState<string>("");
   const [passwordError, setPasswordError] = useState("");
+  const contentWidth = Math.min(width - 32, 420);
 
   const handleLogin = async () => {
     setEmailError("");
@@ -78,48 +84,69 @@ const LoginScreens = () => {
           <Text style={styles.headerTitle}>Tech Store</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.container}>
-        <Text style={styles.title}>Login</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#888"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
-        {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          placeholderTextColor="#888"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-        {passwordError ? (
-          <Text style={styles.errorText}>{passwordError}</Text>
-        ) : null}
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Entrar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/register")}>
-          <Text style={styles.link}>Nao tem conta? Cadastre-se</Text>
-        </TouchableOpacity>
-      </View>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.container, { width: "100%", maxWidth: contentWidth }]}>
+            <Text style={styles.title}>Login</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor="#888"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
+            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+            <TextInput
+              style={styles.input}
+              placeholder="Senha"
+              placeholderTextColor="#888"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+            {passwordError ? (
+              <Text style={styles.errorText}>{passwordError}</Text>
+            ) : null}
+            <TouchableOpacity style={styles.button} onPress={handleLogin}>
+              <Text style={styles.buttonText}>Entrar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/register")}>
+              <Text style={styles.link}>Nao tem conta? Cadastre-se</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   screen: {
     flex: 1,
     backgroundColor: "#030d13",
   },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+  },
 
   header: {
-    height: 80,
+    minHeight: 80,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -134,9 +161,8 @@ const styles = StyleSheet.create({
   },
 
   container: {
-    flex: 1,
     justifyContent: "center",
-    alignItems: "center",
+    alignSelf: "center",
     padding: 24,
   },
 
@@ -149,7 +175,7 @@ const styles = StyleSheet.create({
 
   input: {
     width: "100%",
-    height: 48,
+    minHeight: 48,
     borderColor: "#ccc",
     borderWidth: 1,
     borderRadius: 8,
@@ -162,7 +188,7 @@ const styles = StyleSheet.create({
 
   button: {
     width: "100%",
-    height: 48,
+    minHeight: 48,
     backgroundColor: "#FFFFFF",
     borderRadius: 8,
     justifyContent: "center",
@@ -186,8 +212,9 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#FF6B6B",
     fontSize: 14,
-    marginTop: 5,
-    marginLeft: 5,
+    marginTop: -8,
+    marginBottom: 8,
+    width: "100%",
   },
 });
 

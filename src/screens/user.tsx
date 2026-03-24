@@ -5,15 +5,18 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { auth, database } from "../services/connectionFirebase";
 
 export default function UserScreens() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{
     name: string;
@@ -74,10 +77,14 @@ export default function UserScreens() {
             <Text style={styles.headerTitle}>Tech Store</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.container}>
-          <Text style={styles.titulo}>Perfil</Text>
-          <Text style={styles.label}>Nenhuma informacao de usuario encontrada.</Text>
-        </View>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View
+            style={[styles.container, { width: "100%", maxWidth: Math.min(width - 32, 480) }]}
+          >
+            <Text style={styles.titulo}>Perfil</Text>
+            <Text style={styles.label}>Nenhuma informacao de usuario encontrada.</Text>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -89,15 +96,19 @@ export default function UserScreens() {
           <Text style={styles.headerTitle}>Tech Store</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.container}>
-        <Text style={styles.titulo}>Perfil</Text>
-        <Text style={styles.label}>Nome:</Text>
-        <Text style={styles.valor}>{user.name}</Text>
-        <Text style={styles.label}>Email:</Text>
-        <Text style={styles.valor}>{user.email}</Text>
-        <Text style={styles.label}>Telefone:</Text>
-        <Text style={styles.valor}>{user.phone}</Text>
-      </View>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View
+          style={[styles.container, { width: "100%", maxWidth: Math.min(width - 32, 480) }]}
+        >
+          <Text style={styles.titulo}>Perfil</Text>
+          <Text style={styles.label}>Nome:</Text>
+          <Text style={styles.valor}>{user.name}</Text>
+          <Text style={styles.label}>Email:</Text>
+          <Text style={styles.valor}>{user.email}</Text>
+          <Text style={styles.label}>Telefone:</Text>
+          <Text style={styles.valor}>{user.phone}</Text>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -107,9 +118,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#030d13",
   },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+  },
 
   header: {
-    height: 80,
+    minHeight: 80,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -124,10 +142,9 @@ const styles = StyleSheet.create({
   },
 
   container: {
-    flex: 1,
     justifyContent: "center",
-    alignItems: "center",
     padding: 24,
+    alignSelf: "center",
   },
 
   loadingContainer: {

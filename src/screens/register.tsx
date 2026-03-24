@@ -5,11 +5,14 @@ import { ref, set } from "firebase/database";
 import React, { useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import MaskInput from "react-native-mask-input";
@@ -69,6 +72,8 @@ function FieldRule({ valid, text }: { valid: boolean; text: string }) {
 
 export default function RegisterScreens() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const contentWidth = Math.min(width - 32, 520);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -99,7 +104,7 @@ export default function RegisterScreens() {
     password === confirmPassword;
 
   const passwordRules = {
-    length: password.length >= 6,
+    length: password.length >= 8,
     uppercase: /[A-Z]/.test(password),
     number: /\d/.test(password),
     symbol: /[@$!%*?&]/.test(password),
@@ -142,7 +147,7 @@ export default function RegisterScreens() {
 
     if (!PASSWORD_REGEX.test(password)) {
       setPasswordError(
-        "Senha deve ter no mínimo 6 caracteres, 1 letra maiúscula, 1 número e 1 símbolo"
+        "Senha deve ter no mínimo 8 caracteres, 1 letra maiúscula, 1 número e 1 símbolo"
       );
       hasError = true;
     }
@@ -192,7 +197,7 @@ export default function RegisterScreens() {
       setPassword("");
       setConfirmPassword("");
       resetErrors();
-      router.replace("/(tabs)/user");
+      router.replace("/(tabs)");
     } catch (error: any) {
       const errorMessage = error?.message ?? "Erro ao cadastrar usuário";
 
@@ -216,10 +221,19 @@ export default function RegisterScreens() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
-        <Text style={styles.title}>Criar Conta</Text>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.content, { width: "100%", maxWidth: contentWidth }]}>
+            <Text style={styles.title}>Criar Conta</Text>
 
-        <View style={styles.form}>
+            <View style={styles.form}>
           <TextInput
             style={styles.input}
             placeholder="Nome Completo"
@@ -303,7 +317,7 @@ export default function RegisterScreens() {
                   </Text>
                   <PasswordRule
                     valid={passwordRules.length}
-                    text="Pelo menos 6 caracteres"
+                    text="Pelo menos 8 caracteres"
                   />
                   <PasswordRule
                     valid={passwordRules.uppercase}
@@ -374,19 +388,31 @@ export default function RegisterScreens() {
           <TouchableOpacity onPress={() => router.replace("/(tabs)/user")}>
             <Text style={styles.loginText}>Já possui conta? Fazer login</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   screen: {
     flex: 1,
     backgroundColor: "#030D13",
   },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
   header: {
-    height: 80,
+    minHeight: 80,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -400,9 +426,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   content: {
-    flex: 1,
     justifyContent: "center",
-    padding: 30,
+    alignSelf: "center",
+    paddingVertical: 24,
   },
   title: {
     fontSize: 28,
@@ -417,6 +443,7 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: "#1E1E1E",
     padding: 15,
+    minHeight: 52,
     borderRadius: 10,
     color: "#FFF",
     fontSize: 16,
@@ -430,6 +457,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingLeft: 15,
     paddingRight: 52,
+    minHeight: 52,
     borderRadius: 10,
     color: "#FFF",
     fontSize: 16,
@@ -472,6 +500,7 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: "#FFF",
     padding: 15,
+    minHeight: 52,
     borderRadius: 25,
     alignItems: "center",
     marginTop: 10,
@@ -491,8 +520,8 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#FF6B6B",
     fontSize: 14,
-    marginTop: 5,
-    marginLeft: 5,
+    marginTop: -8,
+    width: "100%",
   },
   messageText: {
     color: "#FFF",

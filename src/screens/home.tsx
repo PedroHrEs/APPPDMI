@@ -6,9 +6,11 @@ import React, { useEffect, useState } from "react";
 import {
   Alert,
   ImageBackground,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { auth, database } from "../services/connectionFirebase";
@@ -21,9 +23,18 @@ type CurrentUser = {
 
 export default function App() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  const isCompactScreen = width < 380;
+  const horizontalPadding = width < 480 ? 16 : 24;
+  const contentWidth = Math.min(width - horizontalPadding * 2, 920);
+  const cardGap = 16;
+  const cardSize = isCompactScreen
+    ? Math.min(contentWidth, 320)
+    : Math.min((contentWidth - cardGap) / 2, 220);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -120,19 +131,38 @@ export default function App() {
         </View>
       )}
 
-      <View style={styles.descriptionContainer}>
-        <Text style={styles.descriptionText}>
-          Bem-vindo a Tech Store! Encontre notebooks, impressoras, perifericos
-          e os melhores produtos de informatica com qualidade e preco justo.
-        </Text>
-      </View>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingHorizontal: horizontalPadding },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View
+          style={[
+            styles.descriptionContainer,
+            { width: "100%", maxWidth: Math.min(contentWidth, 720) },
+          ]}
+        >
+          <Text
+            style={[
+              styles.descriptionText,
+              {
+                fontSize: width < 380 ? 18 : 20,
+                paddingTop: width < 380 ? 16 : 30,
+              },
+            ]}
+          >
+            Bem-vindo a Tech Store! Encontre notebooks, impressoras, perifericos
+            e os melhores produtos de informatica com qualidade e preco justo.
+          </Text>
+        </View>
 
-      <View style={styles.content}>
-        <View style={styles.container}>
+        <View style={[styles.content, { width: "100%", maxWidth: contentWidth }]}>
           <TouchableOpacity>
             <ImageBackground
               source={require("../../assets/images/ImCatalogo.png")}
-              style={styles.button}
+              style={[styles.button, { width: cardSize, height: cardSize }]}
               imageStyle={styles.image}
             >
               <Text style={styles.text}>Catalogo</Text>
@@ -142,19 +172,17 @@ export default function App() {
           <TouchableOpacity>
             <ImageBackground
               source={require("../../assets/images/ImOfertas.png")}
-              style={styles.button}
+              style={[styles.button, { width: cardSize, height: cardSize }]}
               imageStyle={styles.image}
             >
               <Text style={styles.text}>Ofertas</Text>
             </ImageBackground>
           </TouchableOpacity>
-        </View>
 
-        <View style={styles.container}>
           <TouchableOpacity>
             <ImageBackground
               source={require("../../assets/images/ImProdutos.png")}
-              style={styles.button}
+              style={[styles.button, { width: cardSize, height: cardSize }]}
               imageStyle={styles.image}
             >
               <Text style={styles.text}>Produtos</Text>
@@ -164,7 +192,7 @@ export default function App() {
           <TouchableOpacity>
             <ImageBackground
               source={require("../../assets/images/ImSobre.png")}
-              style={styles.button}
+              style={[styles.button, { width: cardSize, height: cardSize }]}
               imageStyle={styles.image}
               resizeMode="cover"
             >
@@ -172,7 +200,7 @@ export default function App() {
             </ImageBackground>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -182,9 +210,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#030d13",
   },
+  scrollContent: {
+    alignItems: "center",
+    paddingBottom: 24,
+  },
 
   header: {
-    height: 80,
+    minHeight: 80,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -224,29 +256,22 @@ const styles = StyleSheet.create({
   },
 
   descriptionContainer: {
-    paddingHorizontal: 25,
     paddingVertical: 15,
   },
 
   descriptionText: {
     color: "#DDD",
     textAlign: "center",
-    fontSize: 20,
-    lineHeight: 22,
-    paddingTop: 30,
+    lineHeight: 28,
     fontFamily: "sans-serif",
   },
 
   content: {
-    flex: 1,
-    paddingTop: 20,
-  },
-
-  container: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "center",
-    gap: 20,
-    marginVertical: 10,
+    gap: 16,
+    paddingTop: 20,
   },
 
   image: {
@@ -268,6 +293,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 10,
+    textAlign: "center",
   },
 
   loginButton: {
