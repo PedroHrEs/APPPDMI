@@ -7,7 +7,6 @@ export default function RootStack() {
     <Stack.Screen name="(tabs)" options={{ headerShown: false }}/>
     <Stack.Screen name="register" options={{ headerShown: false }}/>
     <Stack.Screen name="product-register" options={{ headerShown: false }}/>
-    <Stack.Screen name="products" options={{ headerShown: false }}/>
   </Stack>
   );
 }
