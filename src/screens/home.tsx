@@ -1,5 +1,4 @@
 import { useRouter } from "expo-router";
-import React from "react";
 import {
   ImageBackground,
   ScrollView,
@@ -59,7 +58,7 @@ export default function App() {
         </View>
 
         <View style={[styles.content, { width: "100%", maxWidth: contentWidth }]}>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={handleProductsListNavigation}>
             <ImageBackground
               source={require("../../assets/images/ImCatalogo.png")}
               style={[styles.button, { width: cardSize, height: cardSize }]}
@@ -69,7 +68,7 @@ export default function App() {
             </ImageBackground>
           </TouchableOpacity>
 
-          <TouchableOpacity>
+          <TouchableOpacity onPress={handleProductsListNavigation}>
             <ImageBackground
               source={require("../../assets/images/ImOfertas.png")}
               style={[styles.button, { width: cardSize, height: cardSize }]}

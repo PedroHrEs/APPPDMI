@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { auth } from "../services/connectionFirebase";
@@ -42,7 +42,7 @@ export default function AppHeader() {
       return;
     }
 
-    router.push("/product-register");
+    router.push("/products");
   };
 
   return (
