@@ -388,7 +388,7 @@ export default function Products() {
               ) : null}
             </View>
 
-            <Text style={styles.sectionTitle}>Produtos cadastrados</Text>
+            <Text style={styles.sectionTitle}>Produtos</Text>
 
             {carregando ? (
               <View style={styles.loadingContainer}>
