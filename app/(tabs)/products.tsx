@@ -1,1 +1,1 @@
-export { default } from "../../src/models/products";
+export { default } from "../../src/screens/productScreens";

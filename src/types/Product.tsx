@@ -5,7 +5,23 @@ export interface Product {
   tipo: string;
   imagemUrl: string;
 }
+
+export interface CartItem {
+  id: string;
+  produto: Product;
+  quantidade: number;
+}
+
+export interface Coupon {
+  codigo: string;
+  desconto: number;
+}
+
 export interface JSONBinResponse {
-  record: Product;
+  record: Product[] | {
+    products?: Product[];
+    cart?: CartItem[];
+    coupons?: Coupon[];
+  };
   metadata: any;
 }

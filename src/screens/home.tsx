@@ -57,7 +57,9 @@ export default function App() {
           </Text>
         </View>
 
-        <View style={[styles.content, { width: "100%", maxWidth: contentWidth }]}>
+        <View
+          style={[styles.content, { width: "100%", maxWidth: contentWidth }]}
+        >
           <TouchableOpacity onPress={handleProductsListNavigation}>
             <ImageBackground
               source={require("../../assets/images/ImCatalogo.png")}
