@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { Href, useRouter } from "expo-router";
 import {
   ImageBackground,
   ScrollView,
@@ -24,6 +24,10 @@ export default function App() {
 
   const handleProductsListNavigation = () => {
     router.push("/products");
+  };
+
+  const handleDiscountNavigation = () => {
+    router.push("/discount-management" as Href);
   };
 
   return (
@@ -67,16 +71,6 @@ export default function App() {
               imageStyle={styles.image}
             >
               <Text style={styles.text}>Catalogo</Text>
-            </ImageBackground>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={handleProductsListNavigation}>
-            <ImageBackground
-              source={require("../../assets/images/ImOfertas.png")}
-              style={[styles.button, { width: cardSize, height: cardSize }]}
-              imageStyle={styles.image}
-            >
-              <Text style={styles.text}>Ofertas</Text>
             </ImageBackground>
           </TouchableOpacity>
 

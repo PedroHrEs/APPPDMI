@@ -1,19 +1,19 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from "react-native";
 import AppHeader from "../components/AppHeader";
 import { productService } from "../services/products_service";
@@ -23,6 +23,8 @@ export type ProductPayload = {
   tipo: string;
   descricao: string;
   preco: number;
+  preco_anterior?: number;
+  data_ultima_alteracao?: number;
   imagemUrl?: string;
 };
 
@@ -49,7 +51,8 @@ function isValidUrl(value: string) {
 
   try {
     const url = new URL(value.trim());
-    const protocoloValido = url.protocol === "http:" || url.protocol === "https:";
+    const protocoloValido =
+      url.protocol === "http:" || url.protocol === "https:";
     const caminho = url.pathname.toLowerCase();
     const extensaoValida =
       caminho.endsWith(".jpg") ||
@@ -87,7 +90,8 @@ export default function Products() {
   const tipoValido = tipo.trim().length >= 2;
   const descricaoValida = descricao.trim().length >= 10;
   const precoNumero = Number(preco.replace(",", "."));
-  const precoValido = preco.trim().length > 0 && !Number.isNaN(precoNumero) && precoNumero > 0;
+  const precoValido =
+    preco.trim().length > 0 && !Number.isNaN(precoNumero) && precoNumero > 0;
   const imagemUrlValida = isValidUrl(imagemUrl);
   const formValido =
     nomeValido &&
@@ -144,7 +148,7 @@ export default function Products() {
     useCallback(() => {
       limparCampos();
       carregarProdutos();
-    }, [carregarProdutos, limparCampos])
+    }, [carregarProdutos, limparCampos]),
   );
 
   const validarCampos = () => {
@@ -174,7 +178,7 @@ export default function Products() {
 
     if (!imagemUrlValida) {
       setImagemUrlError(
-        "Informe uma URL de imagem valida com http:// ou https:// (.jpg, .jpeg, .png, .webp)."
+        "Informe uma URL de imagem valida com http:// ou https:// (.jpg, .jpeg, .png, .webp).",
       );
       hasError = true;
     }
@@ -284,7 +288,9 @@ export default function Products() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.content, { width: "100%", maxWidth: contentWidth }]}>
+          <View
+            style={[styles.content, { width: "100%", maxWidth: contentWidth }]}
+          >
             <Text style={styles.title}>
               {editandoId ? "Editar produto" : "Cadastro de produto"}
             </Text>
@@ -298,9 +304,14 @@ export default function Products() {
                 onChangeText={setNome}
               />
               {nome.length > 0 ? (
-                <FieldRule valid={nomeValido} text="Digite pelo menos 3 caracteres" />
+                <FieldRule
+                  valid={nomeValido}
+                  text="Digite pelo menos 3 caracteres"
+                />
               ) : null}
-              {nomeError ? <Text style={styles.errorText}>{nomeError}</Text> : null}
+              {nomeError ? (
+                <Text style={styles.errorText}>{nomeError}</Text>
+              ) : null}
 
               <TextInput
                 style={styles.input}
@@ -310,9 +321,14 @@ export default function Products() {
                 onChangeText={setTipo}
               />
               {tipo.length > 0 ? (
-                <FieldRule valid={tipoValido} text="Digite pelo menos 2 caracteres" />
+                <FieldRule
+                  valid={tipoValido}
+                  text="Digite pelo menos 2 caracteres"
+                />
               ) : null}
-              {tipoError ? <Text style={styles.errorText}>{tipoError}</Text> : null}
+              {tipoError ? (
+                <Text style={styles.errorText}>{tipoError}</Text>
+              ) : null}
 
               <TextInput
                 style={[styles.input, styles.textArea]}
@@ -324,9 +340,14 @@ export default function Products() {
                 textAlignVertical="top"
               />
               {descricao.length > 0 ? (
-                <FieldRule valid={descricaoValida} text="Digite pelo menos 10 caracteres" />
+                <FieldRule
+                  valid={descricaoValida}
+                  text="Digite pelo menos 10 caracteres"
+                />
               ) : null}
-              {descricaoError ? <Text style={styles.errorText}>{descricaoError}</Text> : null}
+              {descricaoError ? (
+                <Text style={styles.errorText}>{descricaoError}</Text>
+              ) : null}
 
               <TextInput
                 style={styles.input}
@@ -337,9 +358,14 @@ export default function Products() {
                 keyboardType="decimal-pad"
               />
               {preco.length > 0 ? (
-                <FieldRule valid={precoValido} text="Informe um valor maior que zero" />
+                <FieldRule
+                  valid={precoValido}
+                  text="Informe um valor maior que zero"
+                />
               ) : null}
-              {precoError ? <Text style={styles.errorText}>{precoError}</Text> : null}
+              {precoError ? (
+                <Text style={styles.errorText}>{precoError}</Text>
+              ) : null}
 
               <TextInput
                 style={styles.input}
@@ -356,11 +382,16 @@ export default function Products() {
                   text="Use uma URL de imagem com http:// ou https:// (.jpg, .jpeg, .png, .webp ou .gif)"
                 />
               ) : null}
-              {imagemUrlError ? <Text style={styles.errorText}>{imagemUrlError}</Text> : null}
+              {imagemUrlError ? (
+                <Text style={styles.errorText}>{imagemUrlError}</Text>
+              ) : null}
 
               {imagemUrl.trim() ? (
                 isValidUrl(imagemUrl) ? (
-                  <Image source={{ uri: imagemUrl.trim() }} style={styles.previewImage} />
+                  <Image
+                    source={{ uri: imagemUrl.trim() }}
+                    style={styles.previewImage}
+                  />
                 ) : null
               ) : null}
 
@@ -382,8 +413,13 @@ export default function Products() {
               </TouchableOpacity>
 
               {editandoId ? (
-                <TouchableOpacity style={styles.secondaryButton} onPress={limparCampos}>
-                  <Text style={styles.secondaryButtonText}>Cancelar edicao</Text>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={limparCampos}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    Cancelar edicao
+                  </Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -396,18 +432,27 @@ export default function Products() {
               </View>
             ) : produtos.length === 0 ? (
               <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>Nenhum produto cadastrado ate o momento.</Text>
+                <Text style={styles.emptyText}>
+                  Nenhum produto cadastrado ate o momento.
+                </Text>
               </View>
             ) : (
               produtos.map((produto) => (
                 <View key={produto.id} style={styles.productCard}>
                   {produto.imagemUrl ? (
-                    <Image source={{ uri: produto.imagemUrl }} style={styles.productImage} />
+                    <Image
+                      source={{ uri: produto.imagemUrl }}
+                      style={styles.productImage}
+                    />
                   ) : null}
                   <Text style={styles.productName}>{produto.nome}</Text>
                   <Text style={styles.productMeta}>Tipo: {produto.tipo}</Text>
-                  <Text style={styles.productDescription}>{produto.descricao}</Text>
-                  <Text style={styles.productPrice}>R$ {formatPrice(produto.preco)}</Text>
+                  <Text style={styles.productDescription}>
+                    {produto.descricao}
+                  </Text>
+                  <Text style={styles.productPrice}>
+                    R$ {formatPrice(produto.preco)}
+                  </Text>
 
                   <View style={styles.actionsRow}>
                     <TouchableOpacity

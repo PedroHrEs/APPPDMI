@@ -7,7 +7,9 @@ interface Props {
   onEdit?: () => void;
   onDelete?: () => void;
   onAddToCart?: () => void;
+  onCreateDiscount?: () => void;
   addingToCart?: boolean;
+  applyingDiscount?: boolean;
 }
 
 export default function ProductCard({
@@ -16,7 +18,9 @@ export default function ProductCard({
   onEdit,
   onDelete,
   onAddToCart,
+  onCreateDiscount,
   addingToCart = false,
+  applyingDiscount = false,
 }: Props) {
   if (!produto) {
     return <Text style={styles.invalidText}>Produto invalido</Text>;
@@ -49,6 +53,27 @@ export default function ProductCard({
           })}
         </Text>
 
+        {produto.preco_anterior && produto.preco_anterior > produto.preco ? (
+          <Text style={styles.previousPrice}>
+            De{" "}
+            {Number(produto.preco_anterior).toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })}
+          </Text>
+        ) : null}
+
+        {produto.desconto ? (
+          <Text style={styles.discountInfo}>
+            {produto.desconto.tipo === "percentage"
+              ? `${produto.desconto.valor}% de desconto`
+              : `${Number(produto.desconto.valor).toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })} de desconto`}
+          </Text>
+        ) : null}
+
         {onAddToCart && (
           <TouchableOpacity
             style={[styles.cartButton, addingToCart && styles.buttonDisabled]}
@@ -57,6 +82,21 @@ export default function ProductCard({
           >
             <Text style={styles.cartButtonText}>
               {addingToCart ? "Adicionando..." : "Adicionar ao carrinho"}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {onCreateDiscount && (
+          <TouchableOpacity
+            style={[
+              styles.discountButton,
+              applyingDiscount && styles.buttonDisabled,
+            ]}
+            onPress={onCreateDiscount}
+            disabled={applyingDiscount}
+          >
+            <Text style={styles.discountButtonText}>
+              {applyingDiscount ? "Salvando..." : "Desconto"}
             </Text>
           </TouchableOpacity>
         )}
@@ -129,6 +169,18 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#0a7ea4",
   },
+  previousPrice: {
+    color: "#9ba1a6",
+    fontSize: 13,
+    marginTop: 4,
+    textDecorationLine: "line-through",
+  },
+  discountInfo: {
+    color: "#7ce0b8",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 4,
+  },
   cartButton: {
     minHeight: 34,
     borderRadius: 8,
@@ -139,6 +191,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   cartButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  discountButton: {
+    minHeight: 34,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2c5e77",
+    marginTop: 8,
+    paddingHorizontal: 10,
+  },
+  discountButtonText: {
     color: "#ffffff",
     fontSize: 12,
     fontWeight: "700",

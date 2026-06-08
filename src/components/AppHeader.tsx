@@ -20,7 +20,15 @@ import { auth } from "../services/connectionFirebase";
 import { getCart, getCoupons, saveCart, saveCoupons } from "../services/api";
 import { CartItem, Coupon } from "../types/Product";
 
-export default function AppHeader() {
+type AppHeaderProps = {
+  title?: string;
+  showBackButton?: boolean;
+};
+
+export default function AppHeader({
+  title = "Tech Store",
+  showBackButton = false,
+}: AppHeaderProps) {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -336,12 +344,33 @@ export default function AppHeader() {
     router.push("/products");
   };
 
+  const handleBackNavigation = () => {
+    setShowMenu(false);
+    router.back();
+  };
+
   return (
     <>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
-          <Text style={styles.headerTitle}>Tech Store</Text>
-        </TouchableOpacity>
+        <View style={styles.headerBrand}>
+          {showBackButton ? (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleBackNavigation}
+            >
+              <Ionicons name="arrow-back" size={22} color="#FFF" />
+            </TouchableOpacity>
+          ) : null}
+
+          <TouchableOpacity
+            onPress={() => router.replace("/(tabs)")}
+            disabled={showBackButton}
+          >
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {title}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.iconButton} onPress={openCart}>
             <Ionicons name="cart-outline" size={24} color="#FFF" />
@@ -601,6 +630,21 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 22,
     fontWeight: "bold",
+  },
+  headerBrand: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingRight: 12,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2b3a44",
   },
   headerActions: {
     flexDirection: "row",
