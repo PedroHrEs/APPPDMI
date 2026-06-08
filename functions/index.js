@@ -129,7 +129,9 @@ function createNotificationContent(event) {
 
   return {
     title: "Produto em promocao",
-    body: `${event.productName} baixou para ${formatCurrency(event.price)}.`,
+    body: `${event.productName} baixou para ${formatCurrency(
+      event.price,
+    )}${formatDiscountPercentageSuffix(event)}.`,
   };
 }
 
@@ -157,4 +159,30 @@ function formatCurrency(value) {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function formatDiscountPercentageSuffix(event) {
+  const percentage = getDiscountPercentage(event);
+
+  return percentage ? ` com ${formatPercentage(percentage)} de desconto` : "";
+}
+
+function getDiscountPercentage(event) {
+  if (typeof event.discountPercentage === "number") {
+    return event.discountPercentage;
+  }
+
+  if (
+    typeof event.previousPrice !== "number" ||
+    event.previousPrice <= 0 ||
+    event.price >= event.previousPrice
+  ) {
+    return null;
+  }
+
+  return ((event.previousPrice - event.price) / event.previousPrice) * 100;
+}
+
+function formatPercentage(value) {
+  return `${Number(value.toFixed(2)).toLocaleString("pt-BR")}%`;
 }

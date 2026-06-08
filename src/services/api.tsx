@@ -1,6 +1,6 @@
 import axios from "axios";
 
-import { CartItem, Coupon, Product } from "../types/Product";
+import { CartItem, CartStore, Coupon, Product } from "../types/Product";
 
 import { API_KEY, URL, WRITE_URL } from "../constants/config";
 
@@ -9,16 +9,23 @@ const headers = {
   "X-Master-Key": API_KEY,
 };
 
-type StoreData = {
+export type StoreData = {
   products: Product[];
-  cart: CartItem[];
+  cart: CartStore;
   coupons: Coupon[];
 };
 
-function createEmptyStore(): StoreData {
+export function createEmptyStore(): StoreData {
   return {
     products: [],
-    cart: [],
+    cart: {
+      items: [],
+      subtotal: 0,
+      cartTotal: 0,
+      couponUsed: null,
+      cep: "",
+      shippingValue: 0,
+    },
     coupons: [],
   };
 }
@@ -39,12 +46,45 @@ function parseProducts(data: any): Product[] {
   return [];
 }
 
-function parseCart(data: any): CartItem[] {
-  if (Array.isArray(data?.record?.cart)) {
-    return data.record.cart as CartItem[];
+function parseCart(data: any): CartStore {
+  const cart = data?.record?.cart;
+
+  if (Array.isArray(cart)) {
+    return {
+      items: cart as CartItem[],
+      subtotal: 0,
+      cartTotal: Number(data?.record?.cartTotal || 0),
+      couponUsed: null,
+      cep: "",
+      shippingValue: 0,
+    };
   }
 
-  return [];
+  if (Array.isArray(cart?.items)) {
+    return {
+      items: cart.items as CartItem[],
+      subtotal: Number(cart.subtotal || 0),
+      cartTotal: Number(cart.cartTotal || 0),
+      couponUsed: cart.couponUsed
+        ? {
+            ...cart.couponUsed,
+            codigo: String(cart.couponUsed.codigo || "").toUpperCase(),
+            desconto: Number(cart.couponUsed.desconto || 0),
+          }
+        : null,
+      cep: String(cart.cep || ""),
+      shippingValue: Number(cart.shippingValue || 0),
+    };
+  }
+
+  return {
+    items: [],
+    subtotal: 0,
+    cartTotal: 0,
+    couponUsed: null,
+    cep: "",
+    shippingValue: 0,
+  };
 }
 
 function parseCoupons(data: any): Coupon[] {
@@ -58,7 +98,7 @@ function parseCoupons(data: any): Coupon[] {
   return [];
 }
 
-async function getStore(): Promise<StoreData> {
+export async function getStore(): Promise<StoreData> {
   const response = await axios.get(URL, { headers });
 
   return {
@@ -68,65 +108,7 @@ async function getStore(): Promise<StoreData> {
   };
 }
 
-async function saveStore(store: StoreData): Promise<StoreData> {
+export async function saveStore(store: StoreData): Promise<StoreData> {
   await axios.put(WRITE_URL, store, { headers });
   return store;
 }
-
-export const getProduct = async (): Promise<Product[]> => {
-  const store = await getStore();
-  return store.products;
-};
-
-export const saveProducts = async (products: Product[]): Promise<Product[]> => {
-  let store = createEmptyStore();
-
-  try {
-    store = await getStore();
-  } catch {
-    store = createEmptyStore();
-  }
-
-  await saveStore({
-    ...store,
-    products,
-  });
-
-  return products;
-};
-
-export const getCart = async (): Promise<CartItem[]> => {
-  const store = await getStore();
-  return store.cart;
-};
-
-export const saveCart = async (cart: CartItem[]): Promise<CartItem[]> => {
-  const store = await getStore();
-
-  await saveStore({
-    ...store,
-    cart,
-  });
-
-  return cart;
-};
-
-export const getCoupons = async (): Promise<Coupon[]> => {
-  const store = await getStore();
-  return store.coupons;
-};
-
-export const saveCoupons = async (coupons: Coupon[]): Promise<Coupon[]> => {
-  const store = await getStore();
-  const normalizedCoupons = coupons.map((coupon) => ({
-    ...coupon,
-    codigo: coupon.codigo.trim().toUpperCase(),
-  }));
-
-  await saveStore({
-    ...store,
-    coupons: normalizedCoupons,
-  });
-
-  return normalizedCoupons;
-};

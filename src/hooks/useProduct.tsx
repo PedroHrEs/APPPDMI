@@ -1,6 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
-import { getProduct } from "../services/api";
+
+import { createEmptyStore, getStore, saveStore } from "../services/api";
 import { Product } from "../types/Product";
+
+export const getProduct = async (): Promise<Product[]> => {
+  const store = await getStore();
+  return store.products;
+};
+
+export const saveProducts = async (products: Product[]): Promise<Product[]> => {
+  let store = createEmptyStore();
+
+  try {
+    store = await getStore();
+  } catch {
+    store = createEmptyStore();
+  }
+
+  await saveStore({
+    ...store,
+    products,
+  });
+
+  return products;
+};
 
 export function useProduct() {
   const [produtos, setProdutos] = useState<Product[]>([]);
@@ -24,5 +47,5 @@ export function useProduct() {
     void load();
   }, [load]);
 
-  return { produtos, loading, error, reload: load };
+  return { produtos, loading, error, reload: load, saveProducts };
 }

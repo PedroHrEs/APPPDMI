@@ -1,4 +1,4 @@
-import { Href, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import {
   ImageBackground,
   ScrollView,
@@ -24,10 +24,6 @@ export default function App() {
 
   const handleProductsListNavigation = () => {
     router.push("/products");
-  };
-
-  const handleDiscountNavigation = () => {
-    router.push("/discount-management" as Href);
   };
 
   return (

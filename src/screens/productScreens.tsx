@@ -18,9 +18,10 @@ import {
 
 import AppHeader from "../components/AppHeader";
 import ProductCard from "../components/ProductCard";
+import { getCart, saveCart } from "../hooks/useCart";
 import { useProduct } from "../hooks/useProduct";
-import { getCart, saveCart, saveProducts } from "../services/api";
 import {
+  notifyProductPriceDrop,
   publishProductCreatedNotification,
   publishProductDiscountNotification,
   publishProductUpdatedNotification,
@@ -42,7 +43,7 @@ function normalizeFilterText(value: string) {
 }
 
 export default function ProductsListScreen() {
-  const { produtos, loading, error, reload } = useProduct();
+  const { produtos, loading, error, reload, saveProducts } = useProduct();
   const { width } = useWindowDimensions();
   const [items, setItems] = useState<ProductItem[]>([]);
   const [pendingSearchTerm, setPendingSearchTerm] = useState("");
@@ -229,6 +230,7 @@ export default function ProductsListScreen() {
   const notifySavedDiscount = async (product: Product) => {
     try {
       await publishProductDiscountNotification(product);
+      await notifyProductPriceDrop(product);
     } catch (error) {
       console.error("Erro ao publicar notificacao de desconto:", error);
       Alert.alert(
@@ -474,7 +476,8 @@ export default function ProductsListScreen() {
           : item,
       );
 
-      updatedProduct = nextItems.find((item) => item.localId === editingId) ?? null;
+      updatedProduct =
+        nextItems.find((item) => item.localId === editingId) ?? null;
     } else {
       const createdAt = Date.now();
       const createDiscount: ProductDiscount | undefined =
@@ -616,16 +619,6 @@ export default function ProductsListScreen() {
 
         <Text style={styles.filterLabel}>Preco</Text>
         <View style={styles.priceSortRow}>
-          <TouchableOpacity
-            style={[
-              styles.priceSortButton,
-              priceSortOrder === "none" && styles.priceSortButtonActive,
-            ]}
-            onPress={() => setPriceSortOrder("none")}
-          >
-            <Text style={styles.priceSortText}>Padrao</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={[
               styles.priceSortButton,

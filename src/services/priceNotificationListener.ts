@@ -44,6 +44,7 @@ type ProductWebNotificationEvent = {
   productName: string;
   price: number;
   previousPrice: number | null;
+  discountPercentage: number | null;
   createdAt: number;
 };
 
@@ -110,6 +111,7 @@ async function publishProductWebNotification(
     productName: product.nome,
     price: product.preco,
     previousPrice: product.preco_anterior ?? null,
+    discountPercentage: getProductDiscountPercentage(product),
     createdAt: Date.now(),
   });
 }
@@ -129,8 +131,7 @@ export async function notifyProductPriceDrop(product: Product) {
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: "Produto em promocao",
-      body: `${product.nome} baixou para ${formatCurrency(product.preco)}.`,
+      ...createWebNotificationContent("discount", product),
       data: createNotificationData(product),
       sound: true,
     },
@@ -183,6 +184,15 @@ async function startWebDiscountNotificationListener() {
         nome: event.productName,
         preco: event.price,
         preco_anterior: event.previousPrice ?? undefined,
+        desconto: event.discountPercentage
+          ? {
+              tipo: "percentage",
+              valor: event.discountPercentage,
+              precoOriginal: event.previousPrice ?? event.price,
+              precoComDesconto: event.price,
+              criadoEm: event.createdAt,
+            }
+          : undefined,
         descricao: "",
         tipo: "",
       });
@@ -372,6 +382,10 @@ function parseWebNotificationEvent(
     price: data.price,
     previousPrice:
       typeof data.previousPrice === "number" ? data.previousPrice : null,
+    discountPercentage:
+      typeof data.discountPercentage === "number"
+        ? data.discountPercentage
+        : null,
     createdAt: data.createdAt,
   };
 }
@@ -396,7 +410,7 @@ function createWebNotificationContent(
 
   return {
     title: "Produto em promocao",
-    body: `${product.nome} baixou para ${formatCurrency(product.preco)}.`,
+    body: `${product.nome} baixou para ${formatCurrency(product.preco)}${formatDiscountPercentageSuffix(product)}.`,
   };
 }
 
@@ -428,4 +442,29 @@ function formatCurrency(value: number) {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function formatDiscountPercentageSuffix(product: Product) {
+  const percentage = getProductDiscountPercentage(product);
+
+  return percentage ? ` com ${formatPercentage(percentage)} de desconto` : "";
+}
+
+function getProductDiscountPercentage(product: Product) {
+  if (product.desconto?.tipo === "percentage") {
+    return product.desconto.valor;
+  }
+
+  const originalPrice =
+    product.desconto?.precoOriginal ?? product.preco_anterior ?? 0;
+
+  if (originalPrice <= 0 || product.preco >= originalPrice) {
+    return null;
+  }
+
+  return ((originalPrice - product.preco) / originalPrice) * 100;
+}
+
+function formatPercentage(value: number) {
+  return `${Number(value.toFixed(2)).toLocaleString("pt-BR")}%`;
 }
