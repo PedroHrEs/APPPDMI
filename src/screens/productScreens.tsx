@@ -5,29 +5,51 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
-  Platform,
 } from "react-native";
 
 import AppHeader from "../components/AppHeader";
 import ProductCard from "../components/ProductCard";
 import { getCart, saveCart } from "../hooks/useCart";
 import { useProduct } from "../hooks/useProduct";
-import { CartItem, Product } from "../types/Product";
+import {
+  notifyProductPriceDrop,
+  publishProductCreatedNotification,
+  publishProductDiscountNotification,
+  publishProductUpdatedNotification,
+} from "../services/priceNotificationListener";
+import { CartItem, Product, ProductDiscount } from "../types/Product";
 
 type ProductItem = Product & {
   localId: string;
 };
 
+type PriceSortOrder = "none" | "asc" | "desc";
+
+function normalizeFilterText(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export default function ProductsListScreen() {
   const { produtos, loading, error, reload, saveProducts } = useProduct();
   const { width } = useWindowDimensions();
   const [items, setItems] = useState<ProductItem[]>([]);
+  const [pendingSearchTerm, setPendingSearchTerm] = useState("");
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [priceSortOrder, setPriceSortOrder] = useState<PriceSortOrder>("none");
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [nome, setNome] = useState("");
@@ -35,6 +57,10 @@ export default function ProductsListScreen() {
   const [descricao, setDescricao] = useState("");
   const [preco, setPreco] = useState("");
   const [imagemUrl, setImagemUrl] = useState("");
+  const [createDiscountEnabled, setCreateDiscountEnabled] = useState(false);
+  const [createDiscountType, setCreateDiscountType] =
+    useState<ProductDiscount["tipo"]>("percentage");
+  const [createDiscountValue, setCreateDiscountValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [addingProductId, setAddingProductId] = useState<string | null>(null);
@@ -42,6 +68,13 @@ export default function ProductsListScreen() {
   const [selectedCartProduct, setSelectedCartProduct] =
     useState<ProductItem | null>(null);
   const [cartQuantity, setCartQuantity] = useState("1");
+  const [discountModalVisible, setDiscountModalVisible] = useState(false);
+  const [selectedDiscountProduct, setSelectedDiscountProduct] =
+    useState<ProductItem | null>(null);
+  const [discountType, setDiscountType] =
+    useState<ProductDiscount["tipo"]>("percentage");
+  const [discountValue, setDiscountValue] = useState("");
+  const [discountSavingId, setDiscountSavingId] = useState<string | null>(null);
 
   const horizontalPadding = width < 480 ? 16 : 24;
   const maxContentWidth = 1080;
@@ -49,18 +82,133 @@ export default function ProductsListScreen() {
   const numColumns = width >= 900 ? 3 : width >= 620 ? 2 : 1;
   const cardGap = 14;
   const cardWidth = (contentWidth - cardGap * (numColumns - 1)) / numColumns;
-  const isFormValid = useMemo(() => {
-    const precoNumero = Number(preco.replace(",", "."));
-    return (
+  const productFormPrice = useMemo(
+    () => Number(preco.replace(",", ".")),
+    [preco],
+  );
+  const parsedCreateDiscountValue = useMemo(() => {
+    const parsed = Number(createDiscountValue.replace(",", "."));
+
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [createDiscountValue]);
+  const createDiscountPreviewPrice = useMemo(() => {
+    if (!createDiscountEnabled || parsedCreateDiscountValue === null) {
+      return null;
+    }
+
+    if (createDiscountType === "percentage") {
+      return Math.max(
+        0,
+        productFormPrice * (1 - parsedCreateDiscountValue / 100),
+      );
+    }
+
+    return Math.max(0, productFormPrice - parsedCreateDiscountValue);
+  }, [
+    createDiscountEnabled,
+    createDiscountType,
+    parsedCreateDiscountValue,
+    productFormPrice,
+  ]);
+  const isCreateDiscountFormValid =
+    !createDiscountEnabled ||
+    (parsedCreateDiscountValue !== null &&
+      parsedCreateDiscountValue > 0 &&
+      !Number.isNaN(productFormPrice) &&
+      productFormPrice > 0 &&
+      (createDiscountType === "fixed" || parsedCreateDiscountValue <= 100) &&
+      createDiscountPreviewPrice !== null &&
+      createDiscountPreviewPrice < productFormPrice);
+  const isFormValid = useMemo(
+    () =>
       nome.trim().length >= 2 &&
       tipo.trim().length >= 2 &&
       descricao.trim().length >= 5 &&
-      !Number.isNaN(precoNumero) &&
-      precoNumero > 0 &&
+      !Number.isNaN(productFormPrice) &&
+      productFormPrice > 0 &&
       (imagemUrl.trim().length === 0 ||
-        /^https?:\/\/.+/i.test(imagemUrl.trim()))
+        /^https?:\/\/.+/i.test(imagemUrl.trim())) &&
+      isCreateDiscountFormValid,
+    [
+      descricao,
+      imagemUrl,
+      isCreateDiscountFormValid,
+      nome,
+      productFormPrice,
+      tipo,
+    ],
+  );
+  const parsedDiscountValue = useMemo(() => {
+    const parsed = Number(discountValue.replace(",", "."));
+
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [discountValue]);
+  const discountBasePrice =
+    selectedDiscountProduct?.desconto?.precoOriginal ??
+    selectedDiscountProduct?.preco_anterior ??
+    selectedDiscountProduct?.preco ??
+    0;
+  const discountPreviewPrice = useMemo(() => {
+    if (!selectedDiscountProduct || parsedDiscountValue === null) {
+      return null;
+    }
+
+    if (discountType === "percentage") {
+      return Math.max(0, discountBasePrice * (1 - parsedDiscountValue / 100));
+    }
+
+    return Math.max(0, discountBasePrice - parsedDiscountValue);
+  }, [
+    discountBasePrice,
+    discountType,
+    parsedDiscountValue,
+    selectedDiscountProduct,
+  ]);
+  const isDiscountFormValid =
+    !!selectedDiscountProduct &&
+    parsedDiscountValue !== null &&
+    parsedDiscountValue > 0 &&
+    (discountType === "fixed" || parsedDiscountValue <= 100) &&
+    discountPreviewPrice !== null &&
+    discountPreviewPrice < discountBasePrice;
+  const categoryOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          items
+            .map((item) => item.tipo.trim())
+            .filter((category) => category.length > 0),
+        ),
+      ).sort((current, next) => current.localeCompare(next, "pt-BR")),
+    [items],
+  );
+  const filteredItems = useMemo(() => {
+    const normalizedSearch = normalizeFilterText(appliedSearchTerm);
+
+    const filteredProducts = items.filter((item) => {
+      const matchesName =
+        !normalizedSearch ||
+        normalizeFilterText(item.nome).includes(normalizedSearch);
+      const matchesCategory =
+        !selectedCategory || item.tipo.trim() === selectedCategory;
+
+      return matchesName && matchesCategory;
+    });
+
+    if (priceSortOrder === "none") {
+      return filteredProducts;
+    }
+
+    return [...filteredProducts].sort((current, next) =>
+      priceSortOrder === "asc"
+        ? current.preco - next.preco
+        : next.preco - current.preco,
     );
-  }, [descricao, imagemUrl, nome, preco, tipo]);
+  }, [appliedSearchTerm, items, priceSortOrder, selectedCategory]);
+  const hasActiveFilters =
+    appliedSearchTerm.trim().length > 0 ||
+    selectedCategory !== null ||
+    priceSortOrder !== "none";
 
   useEffect(() => {
     const mapped = produtos.map((produto, index) => ({
@@ -78,6 +226,43 @@ export default function ProductsListScreen() {
 
   const productCartId = (produto: Product) =>
     `${produto.nome}-${produto.tipo}-${produto.preco}`;
+
+  const notifySavedDiscount = async (product: Product) => {
+    try {
+      await publishProductDiscountNotification(product);
+      await notifyProductPriceDrop(product);
+    } catch (error) {
+      console.error("Erro ao publicar notificacao de desconto:", error);
+      Alert.alert(
+        "Desconto salvo",
+        "O desconto foi salvo, mas nao foi possivel notificar os usuarios na web.",
+      );
+    }
+  };
+
+  const notifyUpdatedProduct = async (product: Product) => {
+    try {
+      await publishProductUpdatedNotification(product);
+    } catch (error) {
+      console.error("Erro ao publicar notificacao de atualizacao:", error);
+      Alert.alert(
+        "Produto atualizado",
+        "O produto foi salvo, mas nao foi possivel notificar os usuarios.",
+      );
+    }
+  };
+
+  const notifyCreatedProduct = async (product: Product) => {
+    try {
+      await publishProductCreatedNotification(product);
+    } catch (error) {
+      console.error("Erro ao publicar notificacao de produto:", error);
+      Alert.alert(
+        "Produto cadastrado",
+        "O produto foi salvo, mas nao foi possivel notificar os usuarios na web.",
+      );
+    }
+  };
 
   const loadCart = useCallback(async () => {
     try {
@@ -119,6 +304,29 @@ export default function ProductsListScreen() {
     setCartMenuVisible(false);
     setSelectedCartProduct(null);
     setCartQuantity("1");
+  };
+
+  const openDiscountMenu = (produto: ProductItem) => {
+    setSelectedDiscountProduct(produto);
+    setDiscountType(produto.desconto?.tipo ?? "percentage");
+    setDiscountValue(
+      produto.desconto?.valor ? String(produto.desconto.valor) : "",
+    );
+    setDiscountModalVisible(true);
+  };
+
+  const closeDiscountMenu = () => {
+    setDiscountModalVisible(false);
+    setSelectedDiscountProduct(null);
+    setDiscountType("percentage");
+    setDiscountValue("");
+  };
+
+  const clearProductFilters = () => {
+    setPendingSearchTerm("");
+    setAppliedSearchTerm("");
+    setSelectedCategory(null);
+    setPriceSortOrder("none");
   };
 
   const updateCartQuantity = (nextQuantity: number) => {
@@ -178,6 +386,9 @@ export default function ProductsListScreen() {
     setDescricao("");
     setPreco("");
     setImagemUrl("");
+    setCreateDiscountEnabled(false);
+    setCreateDiscountType("percentage");
+    setCreateDiscountValue("");
   };
 
   const onCreate = () => {
@@ -187,6 +398,9 @@ export default function ProductsListScreen() {
     setDescricao("");
     setPreco("");
     setImagemUrl("");
+    setCreateDiscountEnabled(false);
+    setCreateDiscountType("percentage");
+    setCreateDiscountValue("");
     setModalVisible(true);
   };
 
@@ -197,6 +411,9 @@ export default function ProductsListScreen() {
     setDescricao(item.descricao);
     setPreco(String(item.preco));
     setImagemUrl(item.imagemUrl ?? "");
+    setCreateDiscountEnabled(false);
+    setCreateDiscountType("percentage");
+    setCreateDiscountValue("");
     setModalVisible(true);
   };
 
@@ -240,43 +457,125 @@ export default function ProductsListScreen() {
       return;
     }
 
-    const precoNumero = Number(preco.replace(",", "."));
+    const precoNumero = productFormPrice;
     let nextItems: ProductItem[] = [];
+    let updatedProduct: ProductItem | null = null;
+    let createdProduct: ProductItem | null = null;
 
     if (editingId) {
       nextItems = items.map((item) =>
-          item.localId === editingId
-            ? {
-                ...item,
-                nome: nome.trim(),
-                tipo: tipo.trim(),
-                descricao: descricao.trim(),
-                preco: precoNumero,
-                imagemUrl: imagemUrl.trim(),
-              }
-            : item,
-        );
+        item.localId === editingId
+          ? {
+              ...item,
+              nome: nome.trim(),
+              tipo: tipo.trim(),
+              descricao: descricao.trim(),
+              preco: precoNumero,
+              imagemUrl: imagemUrl.trim(),
+            }
+          : item,
+      );
+
+      updatedProduct =
+        nextItems.find((item) => item.localId === editingId) ?? null;
     } else {
+      const createdAt = Date.now();
+      const createDiscount: ProductDiscount | undefined =
+        createDiscountEnabled &&
+        createDiscountPreviewPrice !== null &&
+        parsedCreateDiscountValue !== null
+          ? {
+              tipo: createDiscountType,
+              valor: parsedCreateDiscountValue,
+              precoOriginal: precoNumero,
+              precoComDesconto: createDiscountPreviewPrice,
+              criadoEm: createdAt,
+            }
+          : undefined;
       const newItem: ProductItem = {
         localId: `local-${Date.now()}`,
         nome: nome.trim(),
         tipo: tipo.trim(),
         descricao: descricao.trim(),
-        preco: precoNumero,
+        preco: createDiscount?.precoComDesconto ?? precoNumero,
+        preco_anterior: createDiscount ? precoNumero : undefined,
+        desconto: createDiscount,
+        data_ultima_alteracao: createdAt,
         imagemUrl: imagemUrl.trim(),
       };
+      createdProduct = newItem;
       nextItems = [newItem, ...items];
     }
     try {
       setSaving(true);
       await saveProducts(toApiProducts(nextItems));
       setItems(nextItems);
+
+      if (updatedProduct) {
+        await notifyUpdatedProduct(updatedProduct);
+      }
+
+      if (createdProduct) {
+        await notifyCreatedProduct(createdProduct);
+      }
+
       await reload();
       closeModal();
     } catch {
       Alert.alert("Erro", "Nao foi possivel salvar o produto na API.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onSaveDiscount = async () => {
+    if (
+      !isDiscountFormValid ||
+      !selectedDiscountProduct ||
+      discountPreviewPrice === null ||
+      parsedDiscountValue === null
+    ) {
+      return;
+    }
+
+    const createdAt = Date.now();
+    const discount: ProductDiscount = {
+      tipo: discountType,
+      valor: parsedDiscountValue,
+      precoOriginal: discountBasePrice,
+      precoComDesconto: discountPreviewPrice,
+      criadoEm: createdAt,
+    };
+    const nextItems = items.map((item) =>
+      item.localId === selectedDiscountProduct.localId
+        ? {
+            ...item,
+            preco: discount.precoComDesconto,
+            preco_anterior: discount.precoOriginal,
+            desconto: discount,
+            data_ultima_alteracao: createdAt,
+          }
+        : item,
+    );
+    const discountedProduct = nextItems.find(
+      (item) => item.localId === selectedDiscountProduct.localId,
+    );
+
+    try {
+      setDiscountSavingId(selectedDiscountProduct.localId);
+      await saveProducts(toApiProducts(nextItems));
+      setItems(nextItems);
+
+      if (discountedProduct) {
+        await notifySavedDiscount(discountedProduct);
+      }
+
+      await reload();
+      closeDiscountMenu();
+    } catch {
+      Alert.alert("Erro", "Nao foi possivel salvar o desconto na API.");
+    } finally {
+      setDiscountSavingId(null);
     }
   };
 
@@ -290,12 +589,113 @@ export default function ProductsListScreen() {
       addingToCart={addingProductId === item.localId}
       onEdit={() => onEdit(item)}
       onDelete={() => onDelete(item.localId)}
+      onCreateDiscount={() => openDiscountMenu(item)}
+      applyingDiscount={discountSavingId === item.localId}
     />
+  );
+
+  const listHeader = (
+    <View style={styles.headerActions}>
+      <View style={styles.titleRow}>
+        <Text style={styles.pageTitle}>Produtos</Text>
+        <TouchableOpacity style={styles.newButton} onPress={onCreate}>
+          <Text style={styles.newButtonText}>Cadastrar novo produto</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.filtersPanel}>
+        <Text style={styles.filterLabel}>Nome</Text>
+        <TextInput
+          style={styles.input}
+          value={pendingSearchTerm}
+          onChangeText={setPendingSearchTerm}
+          onSubmitEditing={() => setAppliedSearchTerm(pendingSearchTerm)}
+          placeholder="Buscar por nome"
+          placeholderTextColor="#8da2af"
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+        />
+
+        <Text style={styles.filterLabel}>Preco</Text>
+        <View style={styles.priceSortRow}>
+          <TouchableOpacity
+            style={[
+              styles.priceSortButton,
+              priceSortOrder === "asc" && styles.priceSortButtonActive,
+            ]}
+            onPress={() => setPriceSortOrder("asc")}
+          >
+            <Text style={styles.priceSortText}>Menor preco</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.priceSortButton,
+              priceSortOrder === "desc" && styles.priceSortButtonActive,
+            ]}
+            onPress={() => setPriceSortOrder("desc")}
+          >
+            <Text style={styles.priceSortText}>Maior preco</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.filterLabel}>Categoria</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryFilterRow}
+        >
+          <TouchableOpacity
+            style={[
+              styles.categoryFilterButton,
+              selectedCategory === null && styles.categoryFilterButtonActive,
+            ]}
+            onPress={() => setSelectedCategory(null)}
+          >
+            <Text style={styles.categoryFilterText}>Todos</Text>
+          </TouchableOpacity>
+
+          {categoryOptions.map((category) => (
+            <TouchableOpacity
+              key={category}
+              style={[
+                styles.categoryFilterButton,
+                selectedCategory === category &&
+                  styles.categoryFilterButtonActive,
+              ]}
+              onPress={() => setSelectedCategory(category)}
+            >
+              <Text style={styles.categoryFilterText}>{category}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <View style={styles.filterSummaryRow}>
+          <Text style={styles.filterSummaryText}>
+            {filteredItems.length} de {items.length} produtos
+          </Text>
+
+          {hasActiveFilters ? (
+            <TouchableOpacity
+              style={styles.clearFiltersButton}
+              onPress={clearProductFilters}
+            >
+              <Text style={styles.clearFiltersText}>Limpar filtros</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+    </View>
   );
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>Nenhum produto encontrado</Text>
+      <Text style={styles.emptyText}>
+        {items.length === 0
+          ? "Nenhum produto encontrado"
+          : "Nenhum produto corresponde aos filtros"}
+      </Text>
     </View>
   );
 
@@ -324,17 +724,10 @@ export default function ProductsListScreen() {
 
       <FlatList
         key={numColumns}
-        data={items}
+        data={filteredItems}
         renderItem={renderItem}
         keyExtractor={(item) => item.localId}
-        ListHeaderComponent={
-          <View style={styles.headerActions}>
-            <Text style={styles.pageTitle}>Produtos</Text>
-            <TouchableOpacity style={styles.newButton} onPress={onCreate}>
-              <Text style={styles.newButtonText}>Cadastrar novo produto</Text>
-            </TouchableOpacity>
-          </View>
-        }
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={[
           styles.listContent,
@@ -352,75 +745,169 @@ export default function ProductsListScreen() {
         onRequestClose={closeModal}
       >
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { width: Math.min(width - 32, 560) }]}>
-            <Text style={styles.modalTitle}>
-              {editingId ? "Editar produto" : "Novo produto"}
-            </Text>
+          <View
+            style={[styles.modalCard, { width: Math.min(width - 32, 560) }]}
+          >
+            <ScrollView
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.modalTitle}>
+                {editingId ? "Editar produto" : "Novo produto"}
+              </Text>
 
-            <TextInput
-              style={styles.input}
-              value={nome}
-              onChangeText={setNome}
-              placeholder="Nome"
-              placeholderTextColor="#8da2af"
-            />
-            <TextInput
-              style={styles.input}
-              value={tipo}
-              onChangeText={setTipo}
-              placeholder="Tipo"
-              placeholderTextColor="#8da2af"
-            />
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={descricao}
-              onChangeText={setDescricao}
-              placeholder="Descricao"
-              placeholderTextColor="#8da2af"
-              multiline
-              textAlignVertical="top"
-            />
-            <TextInput
-              style={styles.input}
-              value={preco}
-              onChangeText={setPreco}
-              placeholder="Preco"
-              placeholderTextColor="#8da2af"
-              keyboardType="decimal-pad"
-            />
-            <TextInput
-              style={styles.input}
-              value={imagemUrl}
-              onChangeText={setImagemUrl}
-              placeholder="URL da imagem (opcional)"
-              placeholderTextColor="#8da2af"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+              <TextInput
+                style={styles.input}
+                value={nome}
+                onChangeText={setNome}
+                placeholder="Nome"
+                placeholderTextColor="#8da2af"
+              />
+              <TextInput
+                style={styles.input}
+                value={tipo}
+                onChangeText={setTipo}
+                placeholder="Tipo"
+                placeholderTextColor="#8da2af"
+              />
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={descricao}
+                onChangeText={setDescricao}
+                placeholder="Descricao"
+                placeholderTextColor="#8da2af"
+                multiline
+                textAlignVertical="top"
+              />
+              <TextInput
+                style={styles.input}
+                value={preco}
+                onChangeText={setPreco}
+                placeholder="Preco"
+                placeholderTextColor="#8da2af"
+                keyboardType="decimal-pad"
+              />
+              <TextInput
+                style={styles.input}
+                value={imagemUrl}
+                onChangeText={setImagemUrl}
+                placeholder="URL da imagem (opcional)"
+                placeholderTextColor="#8da2af"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={closeModal}
-                disabled={saving}
-              >
-                <Text style={styles.modalButtonText}>Cancelar</Text>
-              </TouchableOpacity>
+              {!editingId ? (
+                <View style={styles.createDiscountBox}>
+                  <View style={styles.switchRow}>
+                    <Text style={styles.quantityLabel}>Adicionar desconto</Text>
+                    <Switch
+                      value={createDiscountEnabled}
+                      onValueChange={setCreateDiscountEnabled}
+                      disabled={saving}
+                      trackColor={{ false: "#2b3a44", true: "#0a7ea4" }}
+                      thumbColor="#ffffff"
+                    />
+                  </View>
 
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.saveButton,
-                  (!isFormValid || saving) && styles.buttonDisabled,
-                ]}
-                onPress={onSaveProduct}
-                disabled={!isFormValid || saving}
-              >
-                <Text style={styles.modalButtonText}>
-                  {saving ? "Salvando..." : editingId ? "Salvar" : "Cadastrar"}
-                </Text>
-              </TouchableOpacity>
-            </View>
+                  {createDiscountEnabled ? (
+                    <>
+                      <Text style={styles.quantityLabel}>Tipo de desconto</Text>
+                      <View style={styles.discountTypeRow}>
+                        <TouchableOpacity
+                          style={[
+                            styles.discountTypeButton,
+                            createDiscountType === "percentage" &&
+                              styles.discountTypeButtonActive,
+                          ]}
+                          onPress={() => setCreateDiscountType("percentage")}
+                          disabled={saving}
+                        >
+                          <Text style={styles.discountTypeText}>
+                            Percentual
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.discountTypeButton,
+                            createDiscountType === "fixed" &&
+                              styles.discountTypeButtonActive,
+                          ]}
+                          onPress={() => setCreateDiscountType("fixed")}
+                          disabled={saving}
+                        >
+                          <Text style={styles.discountTypeText}>
+                            Valor fixo
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <TextInput
+                        style={styles.input}
+                        value={createDiscountValue}
+                        onChangeText={(value) =>
+                          setCreateDiscountValue(value.replace(/[^0-9.,]/g, ""))
+                        }
+                        placeholder={
+                          createDiscountType === "percentage"
+                            ? "Ex.: 10"
+                            : "Ex.: 25,90"
+                        }
+                        placeholderTextColor="#8da2af"
+                        keyboardType="decimal-pad"
+                      />
+
+                      {createDiscountPreviewPrice !== null ? (
+                        <View style={styles.discountPreview}>
+                          <Text style={styles.discountPreviewLabel}>
+                            Novo preco
+                          </Text>
+                          <Text style={styles.discountPreviewValue}>
+                            {createDiscountPreviewPrice.toLocaleString(
+                              "pt-BR",
+                              {
+                                style: "currency",
+                                currency: "BRL",
+                              },
+                            )}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </>
+                  ) : null}
+                </View>
+              ) : null}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={closeModal}
+                  disabled={saving}
+                >
+                  <Text style={styles.modalButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.modalButton,
+                    styles.saveButton,
+                    (!isFormValid || saving) && styles.buttonDisabled,
+                  ]}
+                  onPress={onSaveProduct}
+                  disabled={!isFormValid || saving}
+                >
+                  <Text style={styles.modalButtonText}>
+                    {saving
+                      ? "Salvando..."
+                      : editingId
+                        ? "Salvar"
+                        : "Cadastrar"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -432,7 +919,9 @@ export default function ProductsListScreen() {
         onRequestClose={closeCartMenu}
       >
         <View style={styles.modalBackdrop}>
-          <View style={[styles.quantityCard, { width: Math.min(width - 32, 420) }]}>
+          <View
+            style={[styles.quantityCard, { width: Math.min(width - 32, 420) }]}
+          >
             <Text style={styles.modalTitle}>Adicionar ao carrinho</Text>
 
             <Text numberOfLines={2} style={styles.quantityProductName}>
@@ -499,6 +988,113 @@ export default function ProductsListScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={discountModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDiscountMenu}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[styles.discountCard, { width: Math.min(width - 32, 460) }]}
+          >
+            <Text style={styles.modalTitle}>Desconto</Text>
+
+            <Text numberOfLines={2} style={styles.quantityProductName}>
+              {selectedDiscountProduct?.nome}
+            </Text>
+
+            <View style={styles.discountBaseBox}>
+              <Text style={styles.discountBaseLabel}>Preco original</Text>
+              <Text style={styles.discountBaseValue}>
+                {discountBasePrice.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </Text>
+            </View>
+
+            <Text style={styles.quantityLabel}>Tipo de desconto</Text>
+            <View style={styles.discountTypeRow}>
+              <TouchableOpacity
+                style={[
+                  styles.discountTypeButton,
+                  discountType === "percentage" &&
+                    styles.discountTypeButtonActive,
+                ]}
+                onPress={() => setDiscountType("percentage")}
+                disabled={discountSavingId !== null}
+              >
+                <Text style={styles.discountTypeText}>Percentual</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.discountTypeButton,
+                  discountType === "fixed" && styles.discountTypeButtonActive,
+                ]}
+                onPress={() => setDiscountType("fixed")}
+                disabled={discountSavingId !== null}
+              >
+                <Text style={styles.discountTypeText}>Valor fixo</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={styles.input}
+              value={discountValue}
+              onChangeText={(value) =>
+                setDiscountValue(value.replace(/[^0-9.,]/g, ""))
+              }
+              placeholder={
+                discountType === "percentage" ? "Ex.: 10" : "Ex.: 25,90"
+              }
+              placeholderTextColor="#8da2af"
+              keyboardType="decimal-pad"
+            />
+
+            {discountPreviewPrice !== null ? (
+              <View style={styles.discountPreview}>
+                <Text style={styles.discountPreviewLabel}>Novo preco</Text>
+                <Text style={styles.discountPreviewValue}>
+                  {discountPreviewPrice.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={closeDiscountMenu}
+                disabled={discountSavingId !== null}
+              >
+                <Text style={styles.modalButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.saveButton,
+                  (!isDiscountFormValid || discountSavingId !== null) &&
+                    styles.buttonDisabled,
+                ]}
+                onPress={() => {
+                  void onSaveDiscount();
+                }}
+                disabled={!isDiscountFormValid || discountSavingId !== null}
+              >
+                <Text style={styles.modalButtonText}>
+                  {discountSavingId !== null ? "Salvando..." : "Salvar"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -519,6 +1115,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     gap: 10,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
   pageTitle: {
     color: "#ffffff",
     fontSize: 24,
@@ -536,6 +1139,88 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 15,
     fontWeight: "600",
+  },
+  filtersPanel: {
+    borderRadius: 10,
+    backgroundColor: "#0b1820",
+    borderWidth: 1,
+    borderColor: "#1f2e39",
+    padding: 12,
+    gap: 10,
+  },
+  filterLabel: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  priceSortRow: {
+    flexDirection: "row",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  priceSortButton: {
+    flex: 1,
+    minWidth: 120,
+    minHeight: 38,
+    borderRadius: 8,
+    backgroundColor: "#20313c",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  priceSortButtonActive: {
+    backgroundColor: "#0a7ea4",
+  },
+  priceSortText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  categoryFilterRow: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  categoryFilterButton: {
+    minHeight: 36,
+    borderRadius: 8,
+    backgroundColor: "#20313c",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  categoryFilterButtonActive: {
+    backgroundColor: "#0a7ea4",
+  },
+  categoryFilterText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  filterSummaryRow: {
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  filterSummaryText: {
+    color: "#9ba1a6",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  clearFiltersButton: {
+    minHeight: 34,
+    borderRadius: 8,
+    backgroundColor: "#2b3a44",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  clearFiltersText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
   },
   columnWrapper: {
     gap: 14,
@@ -569,6 +1254,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalCard: {
+    maxHeight: "90%",
     backgroundColor: "#11202a",
     borderRadius: 14,
     borderWidth: 1,
@@ -576,7 +1262,18 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
+  modalScrollContent: {
+    gap: 10,
+  },
   quantityCard: {
+    backgroundColor: "#11202a",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#1f2e39",
+    padding: 16,
+    gap: 12,
+  },
+  discountCard: {
     backgroundColor: "#11202a",
     borderRadius: 14,
     borderWidth: 1,
@@ -629,6 +1326,77 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     paddingHorizontal: 12,
+  },
+  discountBaseBox: {
+    borderRadius: 10,
+    backgroundColor: "#0b1820",
+    borderWidth: 1,
+    borderColor: "#1f2e39",
+    padding: 12,
+    gap: 4,
+  },
+  discountBaseLabel: {
+    color: "#9ba1a6",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  discountBaseValue: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  createDiscountBox: {
+    borderRadius: 10,
+    backgroundColor: "#0b1820",
+    borderWidth: 1,
+    borderColor: "#1f2e39",
+    padding: 12,
+    gap: 10,
+  },
+  switchRow: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  discountTypeRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  discountTypeButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 10,
+    backgroundColor: "#20313c",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  discountTypeButtonActive: {
+    backgroundColor: "#0a7ea4",
+  },
+  discountTypeText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  discountPreview: {
+    borderRadius: 10,
+    backgroundColor: "#10271f",
+    borderWidth: 1,
+    borderColor: "#1f6f55",
+    padding: 12,
+    gap: 4,
+  },
+  discountPreviewLabel: {
+    color: "#7ce0b8",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  discountPreviewValue: {
+    color: "#7ce0b8",
+    fontSize: 20,
+    fontWeight: "800",
   },
   input: {
     minHeight: 46,

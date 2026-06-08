@@ -8,7 +8,6 @@
     "scheme": "primeiro",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "main": "app.tsx",
     "ios": {
       "supportsTablet": true
     },
@@ -38,7 +37,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -72,16 +72,6 @@ export default function App() {
 
           <TouchableOpacity onPress={handleProductsListNavigation}>
             <ImageBackground
-              source={require("../../assets/images/ImOfertas.png")}
-              style={[styles.button, { width: cardSize, height: cardSize }]}
-              imageStyle={styles.image}
-            >
-              <Text style={styles.text}>Ofertas</Text>
-            </ImageBackground>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={handleProductsListNavigation}>
-            <ImageBackground
               source={require("../../assets/images/ImProdutos.png")}
               style={[styles.button, { width: cardSize, height: cardSize }]}
               imageStyle={styles.image}
