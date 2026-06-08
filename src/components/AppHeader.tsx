@@ -15,10 +15,12 @@ import {
   View,
 } from "react-native";
 
-import ShoppingCart from "./ShoppingCart";
+import { getCartStore, saveCart } from "../hooks/useCart";
+import { getCoupons, saveCoupons } from "../hooks/useCoupon";
 import { auth } from "../services/connectionFirebase";
-import { getCart, getCoupons, saveCart, saveCoupons } from "../services/api";
 import { CartItem, Coupon } from "../types/Product";
+import CouponCard from "./CouponCard";
+import ShoppingCart from "./ShoppingCart";
 
 export default function AppHeader() {
   const router = useRouter();
@@ -27,16 +29,23 @@ export default function AppHeader() {
   const [showMenu, setShowMenu] = useState(false);
   const [cartVisible, setCartVisible] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartDraftItems, setCartDraftItems] = useState<CartItem[]>([]);
+  const [cartCep, setCartCep] = useState("");
+  const [cartShippingValue, setCartShippingValue] = useState(0);
   const [cartLoading, setCartLoading] = useState(false);
   const [cartSaving, setCartSaving] = useState(false);
+  const [cartSavedOptionsVisible, setCartSavedOptionsVisible] = useState(false);
   const [couponVisible, setCouponVisible] = useState(false);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [couponDiscount, setCouponDiscount] = useState("");
   const [couponSaving, setCouponSaving] = useState(false);
-  const [editingCouponCode, setEditingCouponCode] = useState<string | null>(null);
+  const [editingCouponCode, setEditingCouponCode] = useState<string | null>(
+    null,
+  );
   const [couponFormError, setCouponFormError] = useState("");
+  const [couponFeedbackMessage, setCouponFeedbackMessage] = useState("");
   const [couponApplyError, setCouponApplyError] = useState("");
 
   const totalCartItems = cartItems.reduce(
@@ -47,8 +56,12 @@ export default function AppHeader() {
   const loadCart = useCallback(async () => {
     try {
       setCartLoading(true);
-      const cart = await getCart();
-      setCartItems(cart);
+      const cart = await getCartStore();
+      setCartItems(cart.items);
+      setCartDraftItems(cart.items);
+      setAppliedCoupon(cart.couponUsed);
+      setCartCep(cart.cep);
+      setCartShippingValue(cart.shippingValue);
     } catch {
       Alert.alert("Erro", "Nao foi possivel carregar o carrinho.");
     } finally {
@@ -80,22 +93,42 @@ export default function AppHeader() {
 
   const openCart = () => {
     setShowMenu(false);
+    setCartDraftItems(cartItems);
     setCartVisible(true);
     void loadCart();
   };
 
-  const persistCart = async (nextCart: CartItem[]) => {
+  const persistCart = async (
+    nextCart: CartItem[],
+    subtotal = 0,
+    cartTotal = 0,
+    couponUsed: Coupon | null = null,
+    cep = "",
+    shippingValue = 0,
+  ) => {
     setCartItems(nextCart);
+    setCartCep(cep);
+    setCartShippingValue(shippingValue);
     if (nextCart.length === 0) {
       setAppliedCoupon(null);
     }
     setCartSaving(true);
 
     try {
-      await saveCart(nextCart);
+      await saveCart(
+        nextCart,
+        subtotal,
+        cartTotal,
+        couponUsed,
+        cep,
+        shippingValue,
+      );
+      setCartDraftItems(nextCart);
+      return true;
     } catch {
       Alert.alert("Erro", "Nao foi possivel atualizar o carrinho.");
       await loadCart();
+      return false;
     } finally {
       setCartSaving(false);
     }
@@ -113,6 +146,7 @@ export default function AppHeader() {
     setCouponDiscount("");
     setEditingCouponCode(null);
     setCouponFormError("");
+    setCouponFeedbackMessage("");
   };
 
   const resetCouponForm = () => {
@@ -128,12 +162,15 @@ export default function AppHeader() {
 
     if (code.length < 2 || Number.isNaN(discount) || discount <= 0) {
       setCouponFormError("Informe um codigo sem espacos e um desconto valido.");
+      setCouponFeedbackMessage("");
       return;
     }
 
     setCouponFormError("");
+    setCouponFeedbackMessage("");
 
     const normalizedDiscount = Math.min(discount, 100);
+    const wasEditingCoupon = Boolean(editingCouponCode);
     const nextCoupons = [
       ...coupons.filter(
         (coupon) =>
@@ -161,7 +198,11 @@ export default function AppHeader() {
         });
       }
       resetCouponForm();
-      Alert.alert("Cupom", editingCouponCode ? "Cupom alterado com sucesso." : "Cupom salvo com sucesso.");
+      setCouponFeedbackMessage(
+        wasEditingCoupon
+          ? `Cupom ${code} alterado com sucesso.`
+          : `Cupom ${code} criado com sucesso.`,
+      );
     } catch {
       Alert.alert("Erro", "Nao foi possivel salvar o cupom.");
     } finally {
@@ -205,6 +246,8 @@ export default function AppHeader() {
     setEditingCouponCode(coupon.codigo.toUpperCase());
     setCouponCode(coupon.codigo.toUpperCase());
     setCouponDiscount(String(coupon.desconto));
+    setCouponFormError("");
+    setCouponFeedbackMessage("");
   };
 
   const handleRemoveCoupon = (couponCodeToRemove: string) => {
@@ -231,7 +274,9 @@ export default function AppHeader() {
             resetCouponForm();
           }
 
-          Alert.alert("Cupom", "Cupom removido com sucesso.");
+          setCouponFeedbackMessage(
+            `Cupom ${normalizedCode} removido com sucesso.`,
+          );
         } catch {
           Alert.alert("Erro", "Nao foi possivel remover o cupom.");
         } finally {
@@ -263,16 +308,16 @@ export default function AppHeader() {
     ]);
   };
 
-  const handleIncreaseCartItem = async (id: string) => {
-    const nextCart = cartItems.map((item) =>
+  const handleIncreaseCartItem = (id: string) => {
+    const nextCart = cartDraftItems.map((item) =>
       item.id === id ? { ...item, quantidade: item.quantidade + 1 } : item,
     );
 
-    await persistCart(nextCart);
+    setCartDraftItems(nextCart);
   };
 
-  const handleDecreaseCartItem = async (id: string) => {
-    const nextCart = cartItems
+  const handleDecreaseCartItem = (id: string) => {
+    const nextCart = cartDraftItems
       .map((item) =>
         item.id === id
           ? { ...item, quantidade: Math.max(item.quantidade - 1, 0) }
@@ -280,24 +325,26 @@ export default function AppHeader() {
       )
       .filter((item) => item.quantidade > 0);
 
-    await persistCart(nextCart);
+    setCartDraftItems(nextCart);
   };
 
-  const handleRemoveCartItem = async (id: string) => {
-    const item = cartItems.find((cartItem) => cartItem.id === id);
+  const handleRemoveCartItem = (id: string) => {
+    const item = cartDraftItems.find((cartItem) => cartItem.id === id);
     const productName = item?.produto.nome ?? "este produto";
 
     confirmAction(
       "Remover produto",
       `Deseja remover ${productName} do carrinho?`,
       () => {
-        void persistCart(cartItems.filter((cartItem) => cartItem.id !== id));
+        setCartDraftItems(
+          cartDraftItems.filter((cartItem) => cartItem.id !== id),
+        );
       },
     );
   };
 
-  const handleClearCart = async () => {
-    if (cartItems.length === 0) {
+  const handleClearCart = () => {
+    if (cartDraftItems.length === 0) {
       return;
     }
 
@@ -305,9 +352,43 @@ export default function AppHeader() {
       "Limpar carrinho",
       "Deseja remover todos os itens do carrinho?",
       () => {
-        void persistCart([]);
+        setCartDraftItems([]);
+        setCouponApplyError("");
+        void persistCart([], 0, 0, null, "", 0);
       },
     );
+  };
+
+  const handleSaveCart = async (
+    subtotal: number,
+    cartTotal: number,
+    cep: string,
+    shippingValue: number,
+  ) => {
+    const saved = await persistCart(
+      cartDraftItems,
+      subtotal,
+      cartTotal,
+      appliedCoupon,
+      cep,
+      shippingValue,
+    );
+
+    if (saved) {
+      setCartSavedOptionsVisible(true);
+    }
+  };
+
+  const handleContinueShopping = () => {
+    setCartSavedOptionsVisible(false);
+    setCartVisible(false);
+    router.push("/products");
+  };
+
+  const handleFinishCart = () => {
+    setCartSavedOptionsVisible(false);
+    setCartVisible(false);
+    router.replace("/(tabs)");
   };
 
   const handleLogout = async () => {
@@ -327,7 +408,7 @@ export default function AppHeader() {
     if (!isLoggedIn) {
       Alert.alert(
         "Login necessario",
-        "Entre na sua conta para cadastrar produtos."
+        "Entre na sua conta para cadastrar produtos.",
       );
       router.push("/(tabs)/user");
       return;
@@ -421,7 +502,9 @@ export default function AppHeader() {
         onRequestClose={() => setCartVisible(false)}
       >
         <View style={styles.modalBackdrop}>
-          <View style={[styles.cartModal, { width: Math.min(width - 32, 560) }]}>
+          <View
+            style={[styles.cartModal, { width: Math.min(width - 32, 560) }]}
+          >
             <View style={styles.cartModalHeader}>
               <Text style={styles.cartModalTitle}>Meu carrinho</Text>
               <TouchableOpacity
@@ -434,21 +517,18 @@ export default function AppHeader() {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <ShoppingCart
-                items={cartItems}
+                items={cartDraftItems}
                 loading={cartLoading}
                 saving={cartSaving}
-                onIncrease={(id) => {
-                  void handleIncreaseCartItem(id);
+                onIncrease={handleIncreaseCartItem}
+                onDecrease={handleDecreaseCartItem}
+                onRemove={handleRemoveCartItem}
+                onClear={handleClearCart}
+                onSaveCart={(subtotal, cartTotal, cep, shippingValue) => {
+                  void handleSaveCart(subtotal, cartTotal, cep, shippingValue);
                 }}
-                onDecrease={(id) => {
-                  void handleDecreaseCartItem(id);
-                }}
-                onRemove={(id) => {
-                  void handleRemoveCartItem(id);
-                }}
-                onClear={() => {
-                  void handleClearCart();
-                }}
+                initialCep={cartCep}
+                initialShippingValue={cartShippingValue}
                 appliedCoupon={appliedCoupon}
                 couponError={couponApplyError}
                 onApplyCoupon={(code) => {
@@ -471,10 +551,15 @@ export default function AppHeader() {
         onRequestClose={closeCouponMenu}
       >
         <View style={styles.modalBackdrop}>
-          <View style={[styles.couponModal, { width: Math.min(width - 32, 520) }]}>
+          <View
+            style={[styles.couponModal, { width: Math.min(width - 32, 520) }]}
+          >
             <View style={styles.cartModalHeader}>
               <Text style={styles.cartModalTitle}>Cupons</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={closeCouponMenu}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={closeCouponMenu}
+              >
                 <Ionicons name="close" size={22} color="#FFF" />
               </TouchableOpacity>
             </View>
@@ -486,6 +571,7 @@ export default function AppHeader() {
                 onChangeText={(value) => {
                   setCouponCode(value.replace(/\s/g, "").toUpperCase());
                   setCouponFormError("");
+                  setCouponFeedbackMessage("");
                 }}
                 placeholder="Codigo do cupom"
                 placeholderTextColor="#8da2af"
@@ -501,6 +587,7 @@ export default function AppHeader() {
                 onChangeText={(value) => {
                   setCouponDiscount(value.replace(/[^0-9.,]/g, ""));
                   setCouponFormError("");
+                  setCouponFeedbackMessage("");
                 }}
                 placeholder="Desconto em %"
                 placeholderTextColor="#8da2af"
@@ -535,6 +622,12 @@ export default function AppHeader() {
                   <Text style={styles.cancelEditText}>Cancelar edicao</Text>
                 </TouchableOpacity>
               )}
+
+              {couponFeedbackMessage ? (
+                <Text style={styles.couponFeedback}>
+                  {couponFeedbackMessage}
+                </Text>
+              ) : null}
             </View>
 
             <ScrollView
@@ -543,44 +636,59 @@ export default function AppHeader() {
             >
               <View style={styles.couponList}>
                 {coupons.length === 0 ? (
-                  <Text style={styles.emptyCouponText}>Nenhum cupom criado.</Text>
+                  <Text style={styles.emptyCouponText}>
+                    Nenhum cupom criado.
+                  </Text>
                 ) : (
                   coupons.map((coupon) => (
-                    <View key={coupon.codigo} style={styles.couponItem}>
-                      <View style={styles.couponItemInfo}>
-                        <Text style={styles.couponItemCode}>
-                          {coupon.codigo.toUpperCase()}
-                        </Text>
-                        <Text style={styles.couponItemDiscount}>
-                          {coupon.desconto}% de desconto
-                        </Text>
-                      </View>
-
-                      <View style={styles.couponActions}>
-                        <TouchableOpacity
-                          style={[styles.couponActionButton, styles.editCouponButton]}
-                          onPress={() => handleEditCoupon(coupon)}
-                          disabled={couponSaving}
-                        >
-                          <Text style={styles.couponActionText}>Editar</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[
-                            styles.couponActionButton,
-                            styles.removeCouponButton,
-                          ]}
-                          onPress={() => handleRemoveCoupon(coupon.codigo)}
-                          disabled={couponSaving}
-                        >
-                          <Text style={styles.couponActionText}>Remover</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                    <CouponCard
+                      key={coupon.codigo}
+                      coupon={coupon}
+                      disabled={couponSaving}
+                      onEdit={handleEditCoupon}
+                      onRemove={handleRemoveCoupon}
+                    />
                   ))
                 )}
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={cartSavedOptionsVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCartSavedOptionsVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.cartSavedModal,
+              { width: Math.min(width - 32, 420) },
+            ]}
+          >
+            <Text style={styles.cartSavedTitle}>Carrinho salvo</Text>
+            <Text style={styles.cartSavedMessage}>
+              O que deseja fazer agora?
+            </Text>
+
+            <TouchableOpacity
+              style={styles.cartSavedPrimaryButton}
+              onPress={handleContinueShopping}
+            >
+              <Text style={styles.cartSavedButtonText}>
+                Continuar comprando
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cartSavedSecondaryButton}
+              onPress={handleFinishCart}
+            >
+              <Text style={styles.cartSavedButtonText}>Finalizar</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -707,6 +815,12 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: -4,
   },
+  couponFeedback: {
+    color: "#78d39a",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
   saveCouponButton: {
     minHeight: 42,
     borderRadius: 10,
@@ -744,49 +858,41 @@ const styles = StyleSheet.create({
     color: "#9ba1a6",
     fontSize: 14,
   },
-  couponItem: {
-    minHeight: 48,
-    borderRadius: 10,
-    backgroundColor: "#11202a",
+  cartSavedModal: {
+    backgroundColor: "#030d13",
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#1f2e39",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 10,
+    padding: 16,
+    gap: 12,
   },
-  couponItemInfo: {
-    gap: 2,
-  },
-  couponItemCode: {
+  cartSavedTitle: {
     color: "#ffffff",
-    fontSize: 15,
+    fontSize: 20,
     fontWeight: "800",
   },
-  couponItemDiscount: {
-    color: "#9ba1a6",
-    fontSize: 13,
-    marginTop: 2,
+  cartSavedMessage: {
+    color: "#b7c0c8",
+    fontSize: 14,
+    lineHeight: 20,
   },
-  couponActions: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  couponActionButton: {
-    flex: 1,
-    minHeight: 34,
-    borderRadius: 8,
+  cartSavedPrimaryButton: {
+    minHeight: 42,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#0a7ea4",
   },
-  editCouponButton: {
-    backgroundColor: "#2c5e77",
+  cartSavedSecondaryButton: {
+    minHeight: 42,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2b3a44",
   },
-  removeCouponButton: {
-    backgroundColor: "#8a2d3b",
-  },
-  couponActionText: {
+  cartSavedButtonText: {
     color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
   },
 });

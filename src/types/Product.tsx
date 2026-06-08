@@ -12,6 +12,15 @@ export interface CartItem {
   quantidade: number;
 }
 
+export interface CartStore {
+  items: CartItem[];
+  subtotal: number;
+  cartTotal: number;
+  couponUsed: Coupon | null;
+  cep: string;
+  shippingValue: number;
+}
+
 export interface Coupon {
   codigo: string;
   desconto: number;
@@ -20,7 +29,7 @@ export interface Coupon {
 export interface JSONBinResponse {
   record: Product[] | {
     products?: Product[];
-    cart?: CartItem[];
+    cart?: CartItem[] | CartStore;
     coupons?: Coupon[];
   };
   metadata: any;

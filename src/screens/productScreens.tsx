@@ -16,8 +16,8 @@ import {
 
 import AppHeader from "../components/AppHeader";
 import ProductCard from "../components/ProductCard";
+import { getCart, saveCart } from "../hooks/useCart";
 import { useProduct } from "../hooks/useProduct";
-import { getCart, saveCart, saveProducts } from "../services/api";
 import { CartItem, Product } from "../types/Product";
 
 type ProductItem = Product & {
@@ -25,7 +25,7 @@ type ProductItem = Product & {
 };
 
 export default function ProductsListScreen() {
-  const { produtos, loading, error, reload } = useProduct();
+  const { produtos, loading, error, reload, saveProducts } = useProduct();
   const { width } = useWindowDimensions();
   const [items, setItems] = useState<ProductItem[]>([]);
   const [modalVisible, setModalVisible] = useState(false);

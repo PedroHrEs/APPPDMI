@@ -1,5 +1,11 @@
-import { useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 import { CartItem, Coupon } from "../types/Product";
 
@@ -11,6 +17,14 @@ type Props = {
   onDecrease: (id: string) => void;
   onRemove: (id: string) => void;
   onClear: () => void;
+  onSaveCart: (
+    subtotal: number,
+    totalPrice: number,
+    cep: string,
+    shippingValue: number,
+  ) => void;
+  initialCep?: string;
+  initialShippingValue?: number;
   appliedCoupon?: Coupon | null;
   couponError?: string;
   onApplyCoupon: (codigo: string) => void;
@@ -25,12 +39,18 @@ export default function ShoppingCart({
   onDecrease,
   onRemove,
   onClear,
+  onSaveCart,
+  initialCep = "",
+  initialShippingValue = 0,
   appliedCoupon = null,
   couponError = "",
   onApplyCoupon,
   onRemoveCoupon,
 }: Props) {
   const [couponCode, setCouponCode] = useState("");
+  const [zipCode, setZipCode] = useState(initialCep);
+  const [shippingValue, setShippingValue] = useState(initialShippingValue);
+  const [shippingError, setShippingError] = useState("");
   const totalItems = items.reduce((total, item) => total + item.quantidade, 0);
   const subtotal = items.reduce(
     (total, item) => total + Number(item.produto.preco || 0) * item.quantidade,
@@ -39,7 +59,43 @@ export default function ShoppingCart({
   const discountValue = appliedCoupon
     ? subtotal * (Math.min(Math.max(appliedCoupon.desconto, 0), 100) / 100)
     : 0;
-  const totalPrice = Math.max(subtotal - discountValue, 0);
+  const activeShippingValue = items.length > 0 ? shippingValue : 0;
+  const totalPrice =
+    Math.max(subtotal - discountValue, 0) + activeShippingValue;
+
+  useEffect(() => {
+    setZipCode(initialCep);
+    setShippingValue(initialShippingValue);
+    setShippingError("");
+  }, [initialCep, initialShippingValue]);
+
+  const formatCurrency = (value: number) =>
+    value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+
+  const calculateShipping = (cep: string) => {
+    const firstDigit = Number(cep.charAt(0));
+
+    if (firstDigit <= 1) {
+      return 12.9;
+    }
+
+    if (firstDigit <= 3) {
+      return 16.9;
+    }
+
+    if (firstDigit <= 5) {
+      return 21.9;
+    }
+
+    if (firstDigit <= 7) {
+      return 26.9;
+    }
+
+    return 31.9;
+  };
 
   const handleApplyCoupon = () => {
     const code = couponCode.trim();
@@ -48,6 +104,37 @@ export default function ShoppingCart({
       onApplyCoupon(code);
       setCouponCode("");
     }
+  };
+
+  const handleCalculateShipping = () => {
+    const normalizedZipCode = zipCode.replace(/\D/g, "");
+
+    if (normalizedZipCode.length !== 8) {
+      setShippingValue(0);
+      setShippingError("Informe um CEP valido com 8 digitos.");
+      return;
+    }
+
+    setZipCode(normalizedZipCode.replace(/^(\d{5})(\d{3})$/, "$1-$2"));
+    setShippingValue(calculateShipping(normalizedZipCode));
+    setShippingError("");
+  };
+
+  const handleSaveCart = () => {
+    const normalizedZipCode = zipCode.replace(/\D/g, "");
+
+    if (items.length > 0 && normalizedZipCode.length !== 8) {
+      setShippingValue(0);
+      setShippingError("Informe um CEP valido com 8 digitos antes de salvar.");
+      return;
+    }
+
+    if (items.length > 0 && activeShippingValue <= 0) {
+      setShippingError("Calcule o frete antes de salvar o carrinho.");
+      return;
+    }
+
+    onSaveCart(subtotal, totalPrice, normalizedZipCode, activeShippingValue);
   };
 
   return (
@@ -82,10 +169,7 @@ export default function ShoppingCart({
                   {item.produto.nome}
                 </Text>
                 <Text style={styles.itemPrice}>
-                  {Number(item.produto.preco || 0).toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
+                  {formatCurrency(Number(item.produto.preco || 0))}
                 </Text>
               </View>
 
@@ -118,6 +202,47 @@ export default function ShoppingCart({
               </TouchableOpacity>
             </View>
           ))}
+        </View>
+      )}
+
+      {items.length > 0 && (
+        <View style={styles.shippingBox}>
+          <Text style={styles.couponTitle}>CEP do Endereco</Text>
+          <View style={styles.couponInputRow}>
+            <View style={styles.zipInputColumn}>
+              <TextInput
+                style={styles.couponInput}
+                value={zipCode}
+                onChangeText={(value) => {
+                  setZipCode(value.replace(/\D/g, "").slice(0, 8));
+                  setShippingValue(0);
+                  setShippingError("");
+                }}
+                placeholder="Digite o CEP"
+                placeholderTextColor="#8da2af"
+                keyboardType="number-pad"
+                maxLength={9}
+              />
+
+              {shippingError ? (
+                <Text style={styles.couponError}>{shippingError}</Text>
+              ) : null}
+            </View>
+
+            <TouchableOpacity
+              style={styles.applyCouponButton}
+              onPress={handleCalculateShipping}
+              disabled={saving}
+            >
+              <Text style={styles.applyCouponText}>Calcular</Text>
+            </TouchableOpacity>
+          </View>
+
+          {activeShippingValue > 0 ? (
+            <Text style={styles.shippingText}>
+              Frete calculado: {formatCurrency(activeShippingValue)}
+            </Text>
+          ) : null}
         </View>
       )}
 
@@ -178,37 +303,47 @@ export default function ShoppingCart({
         <View style={styles.totalRows}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Subtotal</Text>
-            <Text style={styles.totalText}>
-              {subtotal.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
-            </Text>
+            <Text style={styles.totalText}>{formatCurrency(subtotal)}</Text>
           </View>
 
           {appliedCoupon && (
             <View style={styles.totalRow}>
               <Text style={styles.discountLabel}>Desconto</Text>
               <Text style={styles.discountValue}>
-                -
-                {discountValue.toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
+                -{formatCurrency(discountValue)}
+              </Text>
+            </View>
+          )}
+
+          {activeShippingValue > 0 && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Frete</Text>
+              <Text style={styles.totalText}>
+                {formatCurrency(activeShippingValue)}
               </Text>
             </View>
           )}
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>
-              {totalPrice.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
-            </Text>
+            <Text style={styles.totalValue}>{formatCurrency(totalPrice)}</Text>
           </View>
         </View>
+
+        {items.length > 0 && (
+          <TouchableOpacity
+            style={[
+              styles.saveCartButton,
+              saving && styles.saveCartButtonDisabled,
+            ]}
+            onPress={handleSaveCart}
+            disabled={saving}
+          >
+            <Text style={styles.saveCartButtonText}>
+              {saving ? "Salvando..." : "Salvar carrinho"}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -325,6 +460,19 @@ const styles = StyleSheet.create({
     padding: 10,
     gap: 10,
   },
+  shippingBox: {
+    backgroundColor: "#0b1820",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#1f2e39",
+    padding: 10,
+    gap: 10,
+  },
+  shippingText: {
+    color: "#b7c0c8",
+    fontSize: 13,
+    fontWeight: "600",
+  },
   couponTitle: {
     color: "#ffffff",
     fontSize: 14,
@@ -333,6 +481,10 @@ const styles = StyleSheet.create({
   couponInputRow: {
     flexDirection: "row",
     gap: 8,
+  },
+  zipInputColumn: {
+    flex: 1,
+    gap: 6,
   },
   couponInput: {
     flex: 1,
@@ -428,6 +580,22 @@ const styles = StyleSheet.create({
   totalValue: {
     color: "#ffffff",
     fontSize: 18,
+    fontWeight: "800",
+  },
+  saveCartButton: {
+    minHeight: 42,
+    borderRadius: 10,
+    backgroundColor: "#0a7ea4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+  },
+  saveCartButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveCartButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
     fontWeight: "800",
   },
 });
